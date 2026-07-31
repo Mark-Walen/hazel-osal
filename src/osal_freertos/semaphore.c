@@ -26,6 +26,25 @@ int os_sem_init(struct os_sem *sem, uint32_t initial_count, uint32_t limit)
     return 0;
 }
 
+int os_sem_deinit(struct os_sem *sem)
+{
+    SemaphoreHandle_t handle;
+
+    if (!sem || !sem->handle) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+
+    handle = (SemaphoreHandle_t)sem->handle;
+    sem->handle = NULL;
+    sem->limit = 0U;
+    vSemaphoreDelete(handle);
+    memset(&sem->storage, 0, sizeof(sem->storage));
+    return 0;
+}
+
 int os_sem_take(struct os_sem *sem, uint32_t timeout)
 {
     BaseType_t result;

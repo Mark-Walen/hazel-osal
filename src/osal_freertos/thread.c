@@ -5,8 +5,18 @@
 static void os_task_entry(void *parameter)
 {
     struct os_thread *thread = (struct os_thread *)parameter;
+    os_critical_key_t key;
 
     thread->entry(thread->p1, thread->p2, thread->p3);
+
+    key = os_enter_critical();
+    thread->completed = true;
+    thread->state = OS_THREAD_TERMINATED;
+    os_exit_critical(key);
+    (void)xSemaphoreGive((SemaphoreHandle_t)thread->completion_handle);
+    key = os_enter_critical();
+    thread->completion_signaled = true;
+    os_exit_critical(key);
     vTaskDelete(NULL);
 }
 
@@ -17,6 +27,7 @@ int os_thread_create(struct os_thread *thread,
                      void *p1, void *p2, void *p3,
                      int prio, uint32_t options)
 {
+    SemaphoreHandle_t completion;
     size_t stack_words;
 
     (void)options;
@@ -34,6 +45,12 @@ int os_thread_create(struct os_thread *thread,
     thread->state = OS_THREAD_READY;
     thread->base_priority = prio;
     sys_dlist_init(&thread->owned_mutexes);
+    completion = xSemaphoreCreateBinaryStatic(
+        (StaticSemaphore_t *)&thread->completion_storage);
+    if (completion == NULL) {
+        return -ENOMEM;
+    }
+    thread->completion_handle = completion;
     stack_words = (stack_size + sizeof(StackType_t) - 1U) /
                   sizeof(StackType_t);
 
@@ -60,6 +77,8 @@ int os_thread_create(struct os_thread *thread,
 
     if (thread->handle == NULL) {
         (void)xTaskResumeAll();
+        vSemaphoreDelete(completion);
+        thread->completion_handle = NULL;
         return -ENOMEM;
     }
 
@@ -70,6 +89,96 @@ int os_thread_create(struct os_thread *thread,
 #endif
 
     (void)xTaskResumeAll();
+    return 0;
+}
+
+static void os_thread_reap(struct os_thread *thread)
+{
+    SemaphoreHandle_t completion;
+    os_critical_key_t key = os_enter_critical();
+
+    completion = (SemaphoreHandle_t)thread->completion_handle;
+    thread->completion_handle = NULL;
+    thread->handle = NULL;
+    thread->completion_reaped = true;
+    thread->join_active = false;
+    os_exit_critical(key);
+
+    if (completion != NULL) {
+        vSemaphoreDelete(completion);
+    }
+}
+
+int os_thread_join(struct os_thread *thread, uint32_t timeout)
+{
+    SemaphoreHandle_t completion;
+    BaseType_t result;
+    os_critical_key_t key;
+
+    if (!thread || os_is_in_isr()) {
+        return !thread ? -EINVAL : -EWOULDBLOCK;
+    }
+    if (os_get_current_thread() == thread) {
+        return -EDEADLK;
+    }
+
+    key = os_enter_critical();
+    if (thread->completion_reaped) {
+        os_exit_critical(key);
+        return 0;
+    }
+    if (!thread->completion_handle) {
+        os_exit_critical(key);
+        return -EINVAL;
+    }
+    if (thread->join_active) {
+        os_exit_critical(key);
+        return -EBUSY;
+    }
+    thread->join_active = true;
+    completion = (SemaphoreHandle_t)thread->completion_handle;
+    os_exit_critical(key);
+
+    result = xSemaphoreTake(completion,
+                            (timeout == OS_WAIT_FOREVER) ?
+                            portMAX_DELAY : (TickType_t)timeout);
+    if (result != pdTRUE) {
+        key = os_enter_critical();
+        thread->join_active = false;
+        os_exit_critical(key);
+        return (timeout == 0U) ? -EBUSY : -ETIMEDOUT;
+    }
+
+    os_thread_reap(thread);
+    return 0;
+}
+
+int os_thread_delete(struct os_thread *thread)
+{
+    os_critical_key_t key;
+
+    if (!thread || os_is_in_isr()) {
+        return !thread ? -EINVAL : -EWOULDBLOCK;
+    }
+
+    key = os_enter_critical();
+    if (thread->completion_reaped) {
+        os_exit_critical(key);
+        return 0;
+    }
+    if (!thread->completion_handle) {
+        os_exit_critical(key);
+        return -EINVAL;
+    }
+    if (!thread->completed || !thread->completion_signaled ||
+        thread->join_active) {
+        os_exit_critical(key);
+        return -EBUSY;
+    }
+    thread->join_active = true;
+    os_exit_critical(key);
+
+    os_thread_reap(thread);
     return 0;
 }
 

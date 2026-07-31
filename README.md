@@ -71,6 +71,18 @@ Call `os_kernel_init()` once before using the other OSAL APIs. Repeated calls
 are allowed. It initializes backend-owned OSAL state only; board setup, the
 native RTOS kernel, and scheduler startup remain platform responsibilities.
 
+Threads have an explicit portable lifetime. `os_thread_join()` waits for the
+entry function to return and then reclaims backend completion resources.
+`os_thread_delete()` only reclaims a thread that has already returned; it does
+not force-kill a running thread, because doing so could abandon an OSAL mutex
+or corrupt a priority-inheritance chain.
+
+Mutexes and semaphores have matching `os_mutex_deinit()` and
+`os_sem_deinit()` calls. They must not be deinitialized while owned or while
+another thread is waiting. The time API also provides monotonic
+`os_uptime_get()` in milliseconds plus saturating, explicit-rounding
+millisecond/tick conversion helpers.
+
 ## RT-Thread integration
 
 RT-Thread is included at `src/third-party/rt-thread`. Its BSP remains

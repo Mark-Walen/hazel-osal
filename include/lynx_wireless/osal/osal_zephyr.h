@@ -6,4 +6,7 @@
 #undef os_sem_storage_t
 #define os_sem_storage_t struct k_sem
 
+#undef os_thread_completion_storage_t
+#define os_thread_completion_storage_t struct k_sem
+
 #endif

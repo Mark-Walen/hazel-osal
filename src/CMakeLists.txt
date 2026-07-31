@@ -27,6 +27,7 @@ elseif(OSAL_RTOS STREQUAL "zephyr")
     set(OSAL_SOURCES
         zephyr/kernel.c
         zephyr/semaphore.c
+        zephyr/time.c
     )
     set(OSAL_CONFIG_DEFINITION CONFIG_ZEPHYR_ENABLE=1)
 else()

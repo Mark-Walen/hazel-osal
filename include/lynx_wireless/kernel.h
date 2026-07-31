@@ -37,6 +37,9 @@
 #ifndef ETIMEDOUT
 #define ETIMEDOUT 110
 #endif
+#ifndef EDEADLK
+#define EDEADLK 35
+#endif
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
 #endif
@@ -106,6 +109,10 @@ typedef void (*os_thread_entry_t)(void *p1, void *p2, void *p3);
 #define os_mutex_storage_t void *
 #endif
 
+#ifndef os_thread_completion_storage_t
+#define os_thread_completion_storage_t void *
+#endif
+
 /**
  * @brief Key structure for critical section management.
  *
@@ -122,6 +129,7 @@ typedef struct {
 enum os_thread_state {
     OS_THREAD_READY = 0, /**< Thread is ready to run. */
     OS_THREAD_PENDING,   /**< Thread is blocked waiting for an event. */
+    OS_THREAD_TERMINATED, /**< Entry function returned. */
 };
 
 /**
@@ -148,6 +156,12 @@ struct os_thread {
     int base_priority;          /**< Priority requested by the application. */
     sys_dlist_t owned_mutexes;  /**< Mutexes currently owned by this thread. */
     os_thread_wait_storage_t wait_storage; /**< Backend wait notification. */
+    void *completion_handle;    /**< Backend completion-event handle. */
+    os_thread_completion_storage_t completion_storage;
+    bool completed;             /**< Entry function has returned. */
+    bool completion_signaled;   /**< Completion event has been published. */
+    bool completion_reaped;     /**< Native OSAL resources were reclaimed. */
+    bool join_active;           /**< A thread is currently joining this thread. */
 };
 
 /**
@@ -160,6 +174,7 @@ struct os_mutex {
     sys_dnode_t owner_node;  /**< Link in the owner's mutex list. */
     void *native_handle;     /**< Native mutex handle for native-IPC backends. */
     os_mutex_storage_t storage; /**< Native static mutex storage. */
+    bool initialized;        /**< Mutex was successfully initialized. */
 };
 
 /**
@@ -261,6 +276,29 @@ int os_thread_create(struct os_thread *thread,
                      int prio, uint32_t options);
 
 /**
+ * @brief Wait for a thread to return from its entry function and reap it.
+ *
+ * Only one joiner may wait at a time. Joining self is rejected. A successful
+ * join may be repeated and returns immediately.
+ *
+ * @param thread Thread to join.
+ * @param timeout Timeout in ticks, zero for non-blocking, or OS_WAIT_FOREVER.
+ * @return 0 on success, -EBUSY for a zero-timeout miss or another joiner,
+ * -ETIMEDOUT on timeout, -EDEADLK for self-join, or another error.
+ */
+int os_thread_join(struct os_thread *thread, uint32_t timeout);
+
+/**
+ * @brief Reap a thread that has already returned.
+ *
+ * This function never force-terminates a running thread. It returns -EBUSY
+ * until the entry function has returned and its completion event is visible.
+ *
+ * @return 0 on success, -EBUSY while running, or another negative error.
+ */
+int os_thread_delete(struct os_thread *thread);
+
+/**
  * @brief Get the current thread handle.
  *
  * @return Pointer to the current thread structure.
@@ -301,6 +339,13 @@ void os_thread_yield(void);
  * @param mutex Pointer to the mutex structure.
  */
 void os_mutex_init(struct os_mutex *mutex);
+
+/**
+ * @brief Deinitialize an unlocked mutex with no waiters.
+ *
+ * @return 0 on success, -EBUSY if owned or awaited, or -EINVAL.
+ */
+int os_mutex_deinit(struct os_mutex *mutex);
 
 /**
  * @brief Lock a mutex.
@@ -347,6 +392,15 @@ int os_mutex_unlock(struct os_mutex *mutex);
  * @return 0 on success or -EINVAL for invalid arguments.
  */
 int os_sem_init(struct os_sem *sem, uint32_t initial_count, uint32_t limit);
+
+/**
+ * @brief Deinitialize a semaphore.
+ *
+ * The caller must ensure no thread is waiting on the semaphore.
+ *
+ * @return 0 on success, -EBUSY if waiters can be detected, or -EINVAL.
+ */
+int os_sem_deinit(struct os_sem *sem);
 
 /**
  * @brief Take one semaphore token.
@@ -431,6 +485,26 @@ void os_free(void *ptr);
  * @return Current tick count.
  */
 uint32_t os_tick_get(void);
+
+/**
+ * @brief Get monotonic uptime in milliseconds.
+ *
+ * @return Milliseconds elapsed since the RTOS tick source started.
+ */
+uint64_t os_uptime_get(void);
+
+/**
+ * @brief Convert milliseconds to ticks, rounding up.
+ *
+ * Values that do not fit saturate at OS_WAIT_FOREVER - 1 because
+ * OS_WAIT_FOREVER is reserved as a timeout sentinel.
+ */
+uint32_t os_ms_to_ticks_ceil(uint64_t milliseconds);
+
+/**
+ * @brief Convert ticks to milliseconds, rounding down.
+ */
+uint64_t os_ticks_to_ms(uint64_t ticks);
 
 /**
  * @brief Delay execution for a specified number of ticks.

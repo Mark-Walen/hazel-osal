@@ -23,6 +23,10 @@
 #undef os_sem_storage_t
 #define os_sem_storage_t StaticSemaphore_t
 
+/** @brief Embedded completion event used by os_thread_join(). */
+#undef os_thread_completion_storage_t
+#define os_thread_completion_storage_t StaticSemaphore_t
+
 #ifdef __cplusplus
 extern "C" {
 #endif

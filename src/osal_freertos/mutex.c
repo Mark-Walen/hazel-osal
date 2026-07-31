@@ -9,7 +9,31 @@ void os_mutex_init(struct os_mutex *mutex)
     if (mutex != NULL) {
         memset(mutex, 0, sizeof(*mutex));
         os_waitq_init(&mutex->wait_q);
+        mutex->initialized = true;
     }
+}
+
+int os_mutex_deinit(struct os_mutex *mutex)
+{
+    os_critical_key_t key;
+
+    if (!mutex || !mutex->initialized) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+
+    key = os_enter_critical();
+    if ((mutex->owner != NULL) ||
+        !sys_dlist_is_empty(&mutex->wait_q.waitq)) {
+        os_exit_critical(key);
+        return -EBUSY;
+    }
+    mutex->initialized = false;
+    os_exit_critical(key);
+    memset(mutex, 0, sizeof(*mutex));
+    return 0;
 }
 
 static int os_mutex_compute_priority_locked(struct os_thread *thread)
@@ -98,7 +122,7 @@ int os_mutex_lock(struct os_mutex *mutex, uint32_t timeout)
     struct os_thread *curr;
     uint32_t start;
 
-    if (!mutex) {
+    if (!mutex || !mutex->initialized) {
         return -EINVAL;
     }
     if (os_is_in_isr()) {
@@ -190,7 +214,7 @@ int os_mutex_unlock(struct os_mutex *mutex)
     struct os_thread *curr;
     os_critical_key_t key;
 
-    if (!mutex) {
+    if (!mutex || !mutex->initialized) {
         return -EINVAL;
     }
     if (os_is_in_isr()) {

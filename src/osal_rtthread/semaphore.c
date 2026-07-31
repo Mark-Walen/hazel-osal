@@ -30,6 +30,31 @@ int os_sem_init(struct os_sem *sem, uint32_t initial_count, uint32_t limit)
     return 0;
 }
 
+int os_sem_deinit(struct os_sem *sem)
+{
+    rt_base_t level;
+    bool busy;
+
+    if (!sem || !sem->handle) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+
+    level = rt_hw_interrupt_disable();
+    busy = !rt_list_isempty(&sem->storage.parent.suspend_thread);
+    rt_hw_interrupt_enable(level);
+    if (busy) {
+        return -EBUSY;
+    }
+    if (rt_sem_detach(&sem->storage) != RT_EOK) {
+        return -EBUSY;
+    }
+    rt_memset(sem, 0, sizeof(*sem));
+    return 0;
+}
+
 int os_sem_take(struct os_sem *sem, uint32_t timeout)
 {
     rt_int32_t ticks;

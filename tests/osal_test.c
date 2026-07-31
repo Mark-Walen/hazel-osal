@@ -24,6 +24,8 @@ static struct os_thread sem_thread;
 static struct os_thread chain_bottom_thread;
 static struct os_thread chain_middle_thread;
 static struct os_thread chain_high_thread;
+static struct os_thread join_thread;
+static struct os_thread delete_thread;
 #ifdef CONFIG_RTTHREAD_ENABLE
 #define TEST_STACK_SIZE 2048
 #else
@@ -43,6 +45,8 @@ TEST_STACK(sem_stack);
 TEST_STACK(chain_bottom_stack);
 TEST_STACK(chain_middle_stack);
 TEST_STACK(chain_high_stack);
+TEST_STACK(join_stack);
+TEST_STACK(delete_stack);
 static os_wait_q_t test_waitq;
 static os_wait_q_t ordered_waitq;
 static struct os_mutex test_mutex;
@@ -72,6 +76,8 @@ static volatile int chain_release_bottom;
 static volatile int chain_bottom_done;
 static volatile int chain_middle_result;
 static volatile int chain_high_result;
+static volatile int join_done;
+static volatile int delete_done;
 static unsigned int checks;
 
 #ifdef CONFIG_RTTHREAD_ENABLE
@@ -245,9 +251,20 @@ static void chain_high_task(void *p1, void *p2, void *p3)
     }
 }
 
+static void lifecycle_task(void *p1, void *p2, void *p3)
+{
+    volatile int *done = (volatile int *)p1;
+    uint32_t delay = (uint32_t)(uintptr_t)p2;
+
+    (void)p3;
+    os_delay(delay);
+    *done = 1;
+}
+
 static void controller_task(void *p1, void *p2, void *p3)
 {
     uint32_t start;
+    uint64_t uptime_start;
     void *allocation;
 
     (void)p1;
@@ -274,8 +291,41 @@ static void controller_task(void *p1, void *p2, void *p3)
     TEST_CHECK(os_malloc(0) == 0);
 
     start = os_tick_get();
+    uptime_start = os_uptime_get();
     os_delay(3);
     TEST_CHECK((uint32_t)(os_tick_get() - start) >= 3U);
+    TEST_CHECK(os_uptime_get() >= uptime_start);
+    TEST_CHECK(os_ms_to_ticks_ceil(0) == 0U);
+    TEST_CHECK(os_ms_to_ticks_ceil(1) >= 1U);
+    TEST_CHECK(os_ticks_to_ms(os_ms_to_ticks_ceil(1000)) == 1000U);
+    TEST_CHECK(os_ms_to_ticks_ceil(UINT64_MAX) == OS_WAIT_FOREVER - 1U);
+    TEST_CHECK(os_thread_join(&controller_thread, 0) == -EDEADLK);
+
+    join_done = 0;
+    TEST_CHECK(os_thread_create(&join_thread, "join",
+                                join_stack, sizeof(join_stack),
+                                lifecycle_task, (void *)&join_done,
+                                (void *)(uintptr_t)5, 0, 2, 0) == 0);
+    TEST_CHECK(os_thread_join(&join_thread, 1) == -ETIMEDOUT);
+    TEST_CHECK(os_thread_join(&join_thread, OS_WAIT_FOREVER) == 0);
+    TEST_CHECK(join_done == 1);
+    TEST_CHECK(join_thread.handle == 0);
+    TEST_CHECK(os_thread_join(&join_thread, 0) == 0);
+
+    delete_done = 0;
+    TEST_CHECK(os_thread_create(&delete_thread, "delete",
+                                delete_stack, sizeof(delete_stack),
+                                lifecycle_task, (void *)&delete_done,
+                                (void *)(uintptr_t)3, 0, 2, 0) == 0);
+    TEST_CHECK(os_thread_delete(&delete_thread) == -EBUSY);
+    while (!delete_done) {
+        os_delay(1);
+    }
+    while (os_thread_delete(&delete_thread) == -EBUSY) {
+        os_delay(1);
+    }
+    TEST_CHECK(delete_thread.handle == 0);
+    TEST_CHECK(os_thread_delete(&delete_thread) == 0);
 
     os_waitq_init(&test_waitq);
     wait_result = -999;
@@ -333,6 +383,12 @@ static void controller_task(void *p1, void *p2, void *p3)
     TEST_CHECK(os_mutex_unlock(&test_mutex) == 0);
     TEST_CHECK(os_mutex_unlock(&test_mutex) == 0);
     TEST_CHECK(os_mutex_unlock(&test_mutex) == -EPERM);
+    TEST_CHECK(os_mutex_lock(&test_mutex, 0) == 0);
+    TEST_CHECK(os_mutex_deinit(&test_mutex) == -EBUSY);
+    TEST_CHECK(os_mutex_unlock(&test_mutex) == 0);
+    TEST_CHECK(os_mutex_deinit(&test_mutex) == 0);
+    TEST_CHECK(os_mutex_trylock(&test_mutex) == -EINVAL);
+    os_mutex_init(&test_mutex);
 
     mutex_locked = 0;
     mutex_done = 0;
@@ -409,6 +465,8 @@ static void controller_task(void *p1, void *p2, void *p3)
     }
     TEST_CHECK(sem_result == 0);
     TEST_CHECK(os_sem_count_get(&test_sem) == 0);
+    TEST_CHECK(os_sem_deinit(&test_sem) == 0);
+    TEST_CHECK(os_sem_trytake(&test_sem) == -EINVAL);
 
     os_mutex_init(&chain_m1);
     os_mutex_init(&chain_m2);

@@ -21,6 +21,20 @@ int os_sem_init(struct os_sem *sem, uint32_t initial_count, uint32_t limit)
     return 0;
 }
 
+int os_sem_deinit(struct os_sem *sem)
+{
+    if (!sem || !sem->handle) {
+        return -EINVAL;
+    }
+    if (k_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+
+    sem->handle = NULL;
+    sem->limit = 0U;
+    return 0;
+}
+
 int os_sem_take(struct os_sem *sem, uint32_t timeout)
 {
     k_timeout_t wait;

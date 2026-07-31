@@ -12,6 +12,9 @@
 #undef os_thread_wait_storage_t
 #define os_thread_wait_storage_t struct rt_semaphore
 
+#undef os_thread_completion_storage_t
+#define os_thread_completion_storage_t struct rt_semaphore
+
 #undef os_mutex_storage_t
 #define os_mutex_storage_t struct rt_mutex
 

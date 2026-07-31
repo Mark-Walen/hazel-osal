@@ -1,20 +1,19 @@
 /* RT-Thread counting semaphore backend. */
-#include <lynx_wireless/kernel.h>
-
-#include <rtthread.h>
-#include <string.h>
+#include "internal.h"
 
 int os_sem_init(struct os_sem *sem, uint32_t initial_count, uint32_t limit)
 {
     rt_err_t result;
+    char name[RT_NAME_MAX];
 
     if (!sem || (limit == 0U) || (initial_count > limit) ||
         (limit > RT_SEM_VALUE_MAX)) {
         return -EINVAL;
     }
 
-    memset(sem, 0, sizeof(*sem));
-    result = rt_sem_init(&sem->storage, "osal", (rt_uint32_t)initial_count,
+    rt_memset(sem, 0, sizeof(*sem));
+    os_rt_name_generate(name, "sem", sem, RT_NULL);
+    result = rt_sem_init(&sem->storage, name, (rt_uint32_t)initial_count,
                          RT_IPC_FLAG_PRIO);
     if (result != RT_EOK) {
         return -ENOMEM;

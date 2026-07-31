@@ -1,10 +1,10 @@
 # Lynx OSAL target tests
 
-This repository builds the OS abstraction layer against the real FreeRTOS
-kernel and runs it as bare-metal RV32 firmware on QEMU's `virt` machine. The
-test is target-side: task scheduling, ticks, wait queues, mutexes, static and
-dynamic task creation, and heap calls execute inside FreeRTOS rather than in a
-host mock.
+This repository builds the OS abstraction layer against real FreeRTOS and
+RT-Thread kernels and runs bare-metal RISC-V firmware on QEMU's `virt`
+machine. The tests are target-side: task scheduling, ticks, wait queues,
+mutexes, static and dynamic task creation, and heap calls execute inside the
+selected RTOS rather than in a host mock.
 
 ## WSL quick start
 
@@ -12,7 +12,7 @@ Use an Ubuntu/Debian WSL distribution and install the cross compiler and QEMU:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build gcc-riscv64-unknown-elf qemu-system-misc
+sudo apt install cmake ninja-build scons gcc-riscv64-unknown-elf qemu-system-misc
 ```
 
 From the repository (a `/mnt/<drive>/...` path is supported):
@@ -27,6 +27,16 @@ Successful output ends with:
 OSAL QEMU RV32 / FreeRTOS
 PASS: OSAL tests
 ```
+
+Run the same target-side suite on RT-Thread RV64 with:
+
+```sh
+bash scripts/wsl-test-rtthread.sh
+```
+
+This builds a minimal freestanding configuration around RT-Thread's
+`qemu-virt64-riscv` BSP in a temporary directory. The submodule itself is not
+modified.
 
 For a manual build or debug session:
 
@@ -90,6 +100,5 @@ static storage selected by the OS adapter:
 
 The common contract includes bounded counts, saturating `give`, non-blocking
 `trytake`, tick-based timeouts, and ISR-safe zero-timeout operations. FreeRTOS
-is exercised by the current QEMU target. The RT-Thread backend is compile-
-checked against its QEMU BSP configuration; target-side RT-Thread and Zephyr
-runtime tests can be added to the build matrix independently.
+and RT-Thread are both exercised by target-side QEMU tests. A Zephyr runtime
+target can be added to the build matrix independently.

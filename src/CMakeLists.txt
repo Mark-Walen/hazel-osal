@@ -12,6 +12,7 @@ if(OSAL_RTOS STREQUAL "freertos")
 elseif(OSAL_RTOS STREQUAL "rtthread")
     set(OSAL_SOURCES
         osal_rtthread/context.c
+        osal_rtthread/name.c
         osal_rtthread/thread.c
         osal_rtthread/waitq.c
         osal_rtthread/mutex.c

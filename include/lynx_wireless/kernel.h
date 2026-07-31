@@ -11,7 +11,35 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#if defined(__has_include)
+#if __has_include(<errno.h>)
 #include <errno.h>
+#endif
+#else
+#include <errno.h>
+#endif
+
+#ifndef EINVAL
+#define EINVAL 22
+#endif
+#ifndef EAGAIN
+#define EAGAIN 11
+#endif
+#ifndef ENOMEM
+#define ENOMEM 12
+#endif
+#ifndef EBUSY
+#define EBUSY 16
+#endif
+#ifndef EPERM
+#define EPERM 1
+#endif
+#ifndef ETIMEDOUT
+#define ETIMEDOUT 110
+#endif
+#ifndef EWOULDBLOCK
+#define EWOULDBLOCK EAGAIN
+#endif
 
 #include <lynx_wireless/osal/osal.h>
 #include <lynx_wireless/sys/util.h>

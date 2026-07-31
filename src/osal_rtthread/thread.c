@@ -1,7 +1,5 @@
 #include "internal.h"
 
-#include <string.h>
-
 #define OS_RT_THREAD_SLICE 10U
 
 static void os_rt_thread_entry(void *parameter)
@@ -19,13 +17,15 @@ int os_thread_create(struct os_thread *thread,
 {
     rt_thread_t handle;
     rt_err_t result;
+    char native_name[RT_NAME_MAX];
+    char wait_name[RT_NAME_MAX];
 
     (void)options;
     if (!thread || !thread_name || !entry || stack_size == 0U) {
         return -EINVAL;
     }
 
-    memset(thread, 0, sizeof(*thread));
+    rt_memset(thread, 0, sizeof(*thread));
     thread->entry = entry;
     thread->p1 = p1;
     thread->p2 = p2;
@@ -35,8 +35,10 @@ int os_thread_create(struct os_thread *thread,
     thread->state = OS_THREAD_READY;
     thread->base_priority = prio;
     sys_dlist_init(&thread->owned_mutexes);
+    os_rt_name_generate(native_name, "thr", thread, thread_name);
+    os_rt_name_generate(wait_name, "wait", &thread->wait_storage, thread_name);
 
-    result = rt_sem_init(&thread->wait_storage, "osal-w", 0,
+    result = rt_sem_init(&thread->wait_storage, wait_name, 0,
                          RT_IPC_FLAG_PRIO);
     if (result != RT_EOK) {
         return -ENOMEM;
@@ -45,7 +47,7 @@ int os_thread_create(struct os_thread *thread,
                          (void *)(rt_ubase_t)1U);
 
     if (stack != NULL) {
-        result = rt_thread_init(&thread->tcb, thread_name,
+        result = rt_thread_init(&thread->tcb, native_name,
                                 os_rt_thread_entry, thread,
                                 stack, (rt_uint32_t)stack_size,
                                 os_to_rt_priority(prio),
@@ -56,7 +58,7 @@ int os_thread_create(struct os_thread *thread,
         handle = &thread->tcb;
     } else {
 #ifdef RT_USING_HEAP
-        handle = rt_thread_create(thread_name, os_rt_thread_entry, thread,
+        handle = rt_thread_create(native_name, os_rt_thread_entry, thread,
                                   (rt_uint32_t)stack_size,
                                   os_to_rt_priority(prio),
                                   OS_RT_THREAD_SLICE);
@@ -98,6 +100,7 @@ int os_thread_get_priority(struct os_thread *thread)
 void os_thread_set_priority(struct os_thread *thread, int priority)
 {
     rt_uint8_t native_priority;
+    os_critical_key_t key;
 
     if (!thread || !thread->handle) {
         return;
@@ -107,6 +110,15 @@ void os_thread_set_priority(struct os_thread *thread, int priority)
     (void)rt_thread_control((rt_thread_t)thread->handle,
                             RT_THREAD_CTRL_CHANGE_PRIORITY,
                             &native_priority);
+
+    key = os_enter_critical();
+    if (thread->wait_q != NULL) {
+        os_wait_q_t *wait_q = thread->wait_q;
+
+        sys_dlist_remove(&thread->wait_node);
+        os_rt_waitq_insert_locked(wait_q, thread);
+    }
+    os_exit_critical(key);
 }
 
 void os_thread_yield(void)

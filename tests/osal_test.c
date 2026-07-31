@@ -1,12 +1,16 @@
 #include <lynx_wireless/kernel.h>
 
+#ifdef CONFIG_FREERTOS_ENABLE
 #include "FreeRTOS.h"
 #include "task.h"
+#endif
 #include "platform.h"
 
 #include <stdint.h>
 
+#ifdef CONFIG_FREERTOS_ENABLE
 extern void freertos_risc_v_trap_handler(void);
+#endif
 
 static struct os_thread controller_thread;
 static struct os_thread wait_thread;
@@ -20,17 +24,25 @@ static struct os_thread sem_thread;
 static struct os_thread chain_bottom_thread;
 static struct os_thread chain_middle_thread;
 static struct os_thread chain_high_thread;
-static os_thread_stack_t wait_stack[384];
-static os_thread_stack_t mutex_stack[384];
-static os_thread_stack_t ordered_low_stack[384];
-static os_thread_stack_t ordered_high_stack[384];
-static os_thread_stack_t pi_owner_stack[384];
-static os_thread_stack_t pi_medium_stack[384];
-static os_thread_stack_t pi_high_stack[384];
-static os_thread_stack_t sem_stack[384];
-static os_thread_stack_t chain_bottom_stack[384];
-static os_thread_stack_t chain_middle_stack[384];
-static os_thread_stack_t chain_high_stack[384];
+#ifdef CONFIG_RTTHREAD_ENABLE
+#define TEST_STACK_SIZE 2048
+#else
+#define TEST_STACK_SIZE 384
+#endif
+#define TEST_STACK(name) \
+    static os_thread_stack_t name[TEST_STACK_SIZE] __attribute__((aligned(16)))
+
+TEST_STACK(wait_stack);
+TEST_STACK(mutex_stack);
+TEST_STACK(ordered_low_stack);
+TEST_STACK(ordered_high_stack);
+TEST_STACK(pi_owner_stack);
+TEST_STACK(pi_medium_stack);
+TEST_STACK(pi_high_stack);
+TEST_STACK(sem_stack);
+TEST_STACK(chain_bottom_stack);
+TEST_STACK(chain_middle_stack);
+TEST_STACK(chain_high_stack);
 static os_wait_q_t test_waitq;
 static os_wait_q_t ordered_waitq;
 static struct os_mutex test_mutex;
@@ -62,6 +74,18 @@ static volatile int chain_middle_result;
 static volatile int chain_high_result;
 static unsigned int checks;
 
+#ifdef CONFIG_RTTHREAD_ENABLE
+static bool text_starts_with(const char *text, const char *prefix)
+{
+    while (*prefix != '\0') {
+        if (*text++ != *prefix++) {
+            return false;
+        }
+    }
+    return true;
+}
+#endif
+
 #define TEST_CHECK(condition) \
     do { \
         ++checks; \
@@ -75,7 +99,7 @@ void osal_test_assert(const char *file, uint32_t line)
 {
     (void)file;
     (void)line;
-    platform_puts("FAIL: FreeRTOS assertion\n");
+    platform_puts("FAIL: RTOS assertion\n");
     platform_exit(0);
 }
 
@@ -230,7 +254,11 @@ static void controller_task(void *p1, void *p2, void *p3)
     (void)p2;
     (void)p3;
 
+#ifdef CONFIG_RTTHREAD_ENABLE
+    platform_puts("OSAL QEMU RV64 / RT-Thread\n");
+#else
     platform_puts("OSAL QEMU RV32 / FreeRTOS\n");
+#endif
 
     TEST_CHECK(!os_is_in_isr());
     TEST_CHECK(os_get_current_thread() == &controller_thread);
@@ -254,6 +282,12 @@ static void controller_task(void *p1, void *p2, void *p3)
     TEST_CHECK(os_thread_create(&wait_thread, "wait",
                                 wait_stack, sizeof(wait_stack),
                                 wait_task, 0, 0, 0, 2, 0) == 0);
+#ifdef CONFIG_RTTHREAD_ENABLE
+    TEST_CHECK(text_starts_with(
+        ((rt_thread_t)wait_thread.handle)->parent.name, "osal-thr-"));
+    TEST_CHECK(text_starts_with(
+        wait_thread.wait_storage.parent.parent.name, "osal-wait-"));
+#endif
     os_delay(2);
     os_waitq_wake_one(&test_waitq, 42);
     while (wait_result == -999) {
@@ -290,6 +324,10 @@ static void controller_task(void *p1, void *p2, void *p3)
     TEST_CHECK(ordered_result[1] == 4);
 
     os_mutex_init(&test_mutex);
+#ifdef CONFIG_RTTHREAD_ENABLE
+    TEST_CHECK(text_starts_with(
+        test_mutex.storage.parent.parent.name, "osal-mutex-"));
+#endif
     TEST_CHECK(os_mutex_trylock(&test_mutex) == 0);
     TEST_CHECK(os_mutex_trylock(&test_mutex) == 0);
     TEST_CHECK(os_mutex_unlock(&test_mutex) == 0);
@@ -343,6 +381,10 @@ static void controller_task(void *p1, void *p2, void *p3)
 
     TEST_CHECK(os_sem_init(&test_sem, 2, 1) == -EINVAL);
     TEST_CHECK(os_sem_init(&test_sem, 1, 2) == 0);
+#ifdef CONFIG_RTTHREAD_ENABLE
+    TEST_CHECK(text_starts_with(
+        test_sem.storage.parent.parent.name, "osal-sem-"));
+#endif
     TEST_CHECK(os_sem_count_get(&test_sem) == 1);
     TEST_CHECK(os_sem_trytake(&test_sem) == 0);
     TEST_CHECK(os_sem_count_get(&test_sem) == 0);
@@ -413,16 +455,22 @@ static void controller_task(void *p1, void *p2, void *p3)
 
 int main(void)
 {
+#ifdef CONFIG_FREERTOS_ENABLE
     __asm__ volatile("csrw mtvec, %0" : : "r"(freertos_risc_v_trap_handler));
+#endif
 
     if (os_thread_create(&controller_thread, "controller",
-                         0, 1024,
+                         0, 4096,
                          controller_task, 0, 0, 0, 3, 0) != 0) {
         platform_puts("FAIL: controller creation\n");
         platform_exit(0);
     }
 
+#ifdef CONFIG_FREERTOS_ENABLE
     vTaskStartScheduler();
     platform_puts("FAIL: scheduler returned\n");
     platform_exit(0);
+#else
+    return 0;
+#endif
 }

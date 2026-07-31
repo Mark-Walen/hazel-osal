@@ -28,5 +28,7 @@ static inline rt_int32_t os_to_rt_timeout(uint32_t timeout)
 }
 
 void os_rt_waitq_insert_locked(os_wait_q_t *q, struct os_thread *thread);
+void os_rt_name_generate(char name[RT_NAME_MAX], const char *kind,
+                         const void *object, const char *salt);
 
 #endif

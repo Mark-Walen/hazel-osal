@@ -1,0 +1,45 @@
+import os
+
+from building import *
+
+osal_root = os.environ['OSAL_ROOT']
+app_dir = GetCurrentDir()
+
+src = [os.path.join(app_dir, 'main.c')]
+src += [
+    os.path.join(osal_root, 'src', 'osal_rtthread', name)
+    for name in [
+        'context.c',
+        'name.c',
+        'thread.c',
+        'waitq.c',
+        'mutex.c',
+        'semaphore.c',
+        'memory.c',
+        'time.c',
+    ]
+]
+src += [
+    os.path.join(
+        osal_root, 'tests', 'platform', 'qemu_virt', 'riscv64', 'platform.c'
+    )
+]
+
+includes = [
+    app_dir,
+    os.path.join(osal_root, 'include'),
+    os.path.join(osal_root, 'src', 'osal_rtthread'),
+    os.path.join(osal_root, 'tests', 'rtthread_qemu', 'include'),
+    os.path.join(osal_root, 'tests', 'platform', 'qemu_virt', 'riscv64'),
+    os.path.abspath(os.path.join(app_dir, '..', 'driver')),
+]
+
+group = DefineGroup(
+    'Applications',
+    src,
+    depend=[''],
+    CPPPATH=includes,
+    CPPDEFINES=['CONFIG_RTTHREAD_ENABLE=1'],
+)
+
+Return('group')

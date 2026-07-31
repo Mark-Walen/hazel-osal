@@ -1,0 +1,32 @@
+# CMake and native build output
+/build/
+/out/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Cross-compiled firmware artifacts
+*.elf
+*.map
+*.bin
+*.hex
+*.o
+*.obj
+*.a
+*.d
+
+# Editors and operating systems
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

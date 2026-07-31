@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "qemu-riscv32-freertos",
+      "displayName": "QEMU RV32 + FreeRTOS",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/qemu-riscv32-freertos",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/riscv32-unknown-elf.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OSAL_RTOS": "freertos",
+        "OSAL_ARCH": "riscv32",
+        "OSAL_PLATFORM": "qemu_virt",
+        "OSAL_BUILD_TESTS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "qemu-riscv32-freertos",
+      "configurePreset": "qemu-riscv32-freertos"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "qemu-riscv32-freertos",
+      "configurePreset": "qemu-riscv32-freertos",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

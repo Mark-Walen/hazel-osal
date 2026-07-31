@@ -1,3 +1,6 @@
 [submodule "src/third-party/FreeRTOS"]
 	path = src/third-party/FreeRTOS
 	url = https://github.com/FreeRTOS/FreeRTOS.git
+[submodule "src/third-party/rt-thread"]
+	path = src/third-party/rt-thread
+	url = https://github.com/RT-Thread/rt-thread.git

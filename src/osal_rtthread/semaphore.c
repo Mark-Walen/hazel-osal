@@ -1,3 +1,4 @@
+/* RT-Thread counting semaphore backend. */
 #include <lynx_wireless/kernel.h>
 
 #include <rtthread.h>
@@ -17,6 +18,12 @@ int os_sem_init(struct os_sem *sem, uint32_t initial_count, uint32_t limit)
                          RT_IPC_FLAG_PRIO);
     if (result != RT_EOK) {
         return -ENOMEM;
+    }
+    result = rt_sem_control(&sem->storage, RT_IPC_CMD_SET_VLIMIT,
+                            (void *)(rt_ubase_t)limit);
+    if (result != RT_EOK) {
+        (void)rt_sem_detach(&sem->storage);
+        return -EINVAL;
     }
 
     sem->handle = &sem->storage;
@@ -54,17 +61,10 @@ int os_sem_trytake(struct os_sem *sem)
 
 void os_sem_give(struct os_sem *sem)
 {
-    rt_base_t level;
-
     if (!sem || !sem->handle) {
         return;
     }
-
-    level = rt_hw_interrupt_disable();
-    if (sem->storage.value < sem->limit) {
-        (void)rt_sem_release((rt_sem_t)sem->handle);
-    }
-    rt_hw_interrupt_enable(level);
+    (void)rt_sem_release((rt_sem_t)sem->handle);
 }
 
 uint32_t os_sem_count_get(struct os_sem *sem)

@@ -1,3 +1,4 @@
+/* Zephyr counting semaphore backend. */
 #include <lynx_wireless/kernel.h>
 
 #include <zephyr/kernel.h>

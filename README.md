@@ -42,7 +42,10 @@ Add `-s -S` to QEMU and connect
 
 ## Portability layout
 
-- `src/osal_<rtos>.c`: OSAL backend behavior.
+- `src/osal_freertos`: FreeRTOS thread, wait queue, mutex, semaphore, memory,
+  context, and time adapters.
+- `src/osal_rtthread`: RT-Thread adapters for the same OSAL contract.
+- `src/zephyr`: Zephyr adapters as they are added.
 - `src/third-party/CMakeLists.txt`: RTOS kernel and CPU portable-layer sources.
 - `tests/platform/<platform>/<arch>`: startup, memory map, console, simulator
   exit, and `FreeRTOSConfig.h`.
@@ -52,6 +55,28 @@ An ARM QEMU target therefore adds an ARM toolchain file and an ARM platform
 directory, then selects the appropriate FreeRTOS portable layer. A second RTOS
 adds its own backend and kernel target without changing target-side OSAL tests.
 
+## RT-Thread integration
+
+RT-Thread is included at `src/third-party/rt-thread`. Its BSP remains
+responsible for building the kernel, drivers, and CPU port; this project builds
+`lynx_osal` against the selected BSP configuration. For example, the vendored
+RISC-V QEMU BSP can be compile-checked with:
+
+```sh
+cmake -S . -B build/rtthread-api -G Ninja \
+  -DOSAL_RTOS=rtthread \
+  -DOSAL_BUILD_TESTS=OFF \
+  -DRTTHREAD_CONFIG_DIR="$PWD/src/third-party/rt-thread/bsp/qemu-virt64-riscv" \
+  -DRTTHREAD_CPU_INCLUDE_DIRS="$PWD/src/third-party/rt-thread/libcpu/risc-v/common64;$PWD/src/third-party/rt-thread/libcpu/risc-v/virt64"
+cmake --build build/rtthread-api
+```
+
+For another architecture, point these cache variables at that BSP's
+`rtconfig.h` directory and CPU-port include directories. The RT-Thread mutex
+adapter uses native `rt_mutex`, including its priority-ordered waiters,
+multi-mutex priority recomputation, dynamic waiter reprioritization, and
+transitive priority inheritance.
+
 ### Semaphore backend adapters
 
 `struct os_sem` has common counting-semaphore semantics while embedding native
@@ -59,11 +84,12 @@ static storage selected by the OS adapter:
 
 | Backend | Native storage | Implementation |
 | --- | --- | --- |
-| FreeRTOS | `StaticSemaphore_t` | `src/osal_sem_freertos.c` |
-| RT-Thread | `struct rt_semaphore` | `src/osal_sem_rtthread.c` |
-| Zephyr | `struct k_sem` | `src/osal_sem_zephyr.c` |
+| FreeRTOS | `StaticSemaphore_t` | `src/osal_freertos/semaphore.c` |
+| RT-Thread | `struct rt_semaphore` | `src/osal_rtthread/semaphore.c` |
+| Zephyr | `struct k_sem` | `src/zephyr/semaphore.c` |
 
 The common contract includes bounded counts, saturating `give`, non-blocking
 `trytake`, tick-based timeouts, and ISR-safe zero-timeout operations. FreeRTOS
-is exercised by the current QEMU target; RT-Thread and Zephyr adapters are
-compiled when those kernels are added to the build matrix.
+is exercised by the current QEMU target. The RT-Thread backend is compile-
+checked against its QEMU BSP configuration; target-side RT-Thread and Zephyr
+runtime tests can be added to the build matrix independently.

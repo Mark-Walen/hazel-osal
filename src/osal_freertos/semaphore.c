@@ -1,4 +1,4 @@
-#include <lynx_wireless/kernel.h>
+#include "internal.h"
 
 #include "FreeRTOS.h"
 #include "semphr.h"

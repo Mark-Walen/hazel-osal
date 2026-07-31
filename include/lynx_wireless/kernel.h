@@ -70,6 +70,14 @@ typedef void (*os_thread_entry_t)(void *p1, void *p2, void *p3);
 #define os_sem_storage_t void *
 #endif
 
+#ifndef os_thread_wait_storage_t
+#define os_thread_wait_storage_t void *
+#endif
+
+#ifndef os_mutex_storage_t
+#define os_mutex_storage_t void *
+#endif
+
 /**
  * @brief Key structure for critical section management.
  *
@@ -111,6 +119,7 @@ struct os_thread {
 
     int base_priority;          /**< Priority requested by the application. */
     sys_dlist_t owned_mutexes;  /**< Mutexes currently owned by this thread. */
+    os_thread_wait_storage_t wait_storage; /**< Backend wait notification. */
 };
 
 /**
@@ -121,6 +130,8 @@ struct os_mutex {
     struct os_thread *owner; /**< Pointer to the thread currently holding the mutex. */
     uint32_t lock_count;     /**< Recursion count (number of locks by owner). */
     sys_dnode_t owner_node;  /**< Link in the owner's mutex list. */
+    void *native_handle;     /**< Native mutex handle for native-IPC backends. */
+    os_mutex_storage_t storage; /**< Native static mutex storage. */
 };
 
 /**

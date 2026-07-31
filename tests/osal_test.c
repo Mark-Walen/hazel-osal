@@ -459,6 +459,11 @@ int main(void)
     __asm__ volatile("csrw mtvec, %0" : : "r"(freertos_risc_v_trap_handler));
 #endif
 
+    if ((os_kernel_init() != 0) || (os_kernel_init() != 0)) {
+        platform_puts("FAIL: OSAL kernel initialization\n");
+        platform_exit(0);
+    }
+
     if (os_thread_create(&controller_thread, "controller",
                          0, 4096,
                          controller_task, 0, 0, 0, 3, 0) != 0) {

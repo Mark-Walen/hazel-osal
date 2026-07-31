@@ -9,6 +9,7 @@ src = [os.path.join(app_dir, 'main.c')]
 src += [
     os.path.join(osal_root, 'src', 'osal_rtthread', name)
     for name in [
+        'kernel.c',
         'context.c',
         'name.c',
         'thread.c',

@@ -65,6 +65,12 @@ An ARM QEMU target therefore adds an ARM toolchain file and an ARM platform
 directory, then selects the appropriate FreeRTOS portable layer. A second RTOS
 adds its own backend and kernel target without changing target-side OSAL tests.
 
+## Kernel lifecycle
+
+Call `os_kernel_init()` once before using the other OSAL APIs. Repeated calls
+are allowed. It initializes backend-owned OSAL state only; board setup, the
+native RTOS kernel, and scheduler startup remain platform responsibilities.
+
 ## RT-Thread integration
 
 RT-Thread is included at `src/third-party/rt-thread`. Its BSP remains

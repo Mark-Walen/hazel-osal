@@ -176,6 +176,24 @@ struct os_sem {
 };
 
 /**
+ * @defgroup Kernel_Lifecycle Kernel lifecycle
+ * @brief Initialize the OS abstraction layer.
+ * @{
+ */
+
+/**
+ * @brief Initialize backend-owned OSAL state.
+ *
+ * This function is idempotent and must be called from thread context before
+ * other OSAL APIs. The platform remains responsible for initializing the
+ * selected RTOS and starting its scheduler.
+ *
+ * @return 0 on success, or -EWOULDBLOCK when called from interrupt context.
+ */
+int os_kernel_init(void);
+/** @} */
+
+/**
  * @defgroup Kernel_WaitQ Wait Queues
  * @brief Functions for managing wait queues.
  * @{

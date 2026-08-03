@@ -1,3 +1,7 @@
+/**
+ * @file signal.c
+ * @brief Single-pending integer-result signal implementation.
+ */
 #include <lynx_wireless/kernel.h>
 
 #include "internal.h"

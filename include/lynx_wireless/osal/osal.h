@@ -1,3 +1,7 @@
+/**
+ * @file osal.h
+ * @brief Select backend-specific storage mappings for the configured RTOS.
+ */
 #ifndef LYNX_INCLUDE_OSAL_H_
 #define LYNX_INCLUDE_OSAL_H_
 

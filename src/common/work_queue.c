@@ -1,3 +1,12 @@
+/**
+ * @file work_queue.c
+ * @brief RTOS-independent immediate and delayable work queue implementation.
+ *
+ * One worker thread owns handler execution. Immediate work uses the FIFO;
+ * delayable work is held on a protected list until the worker's timed wait
+ * reaches the nearest deadline. All public state transitions are serialized
+ * by the OSAL critical-section API.
+ */
 #include <lynx_wireless/kernel.h>
 
 #include "internal.h"
@@ -13,6 +22,7 @@ static void os_work_notify(struct os_work *work)
 
 static uint32_t os_work_deadline_remaining(uint32_t deadline, uint32_t now)
 {
+    /* Signed subtraction preserves ordering across one 32-bit tick wrap. */
     int32_t remaining = (int32_t)(deadline - now);
 
     return remaining > 0 ? (uint32_t)remaining : 0U;

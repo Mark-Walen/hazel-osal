@@ -1,3 +1,11 @@
+/**
+ * @file atomic.c
+ * @brief Sequentially consistent atomic operations for non-Zephyr backends.
+ *
+ * GCC __atomic builtins map to the target architecture's native atomic
+ * instructions and provide the full memory barrier required by the Zephyr
+ * atomic API. Zephyr builds use their native implementation instead.
+ */
 #include <lynx_wireless/sys/atomic.h>
 
 bool atomic_cas(atomic_t *target, atomic_val_t old_value,

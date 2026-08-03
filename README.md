@@ -1,6 +1,9 @@
-# Lynx OSAL target tests
+# Lynx OSAL
 
-This repository builds the OS abstraction layer against real FreeRTOS and
+Portable OS abstraction layer for FreeRTOS, RT-Thread, and Zephyr, with QEMU
+tests for RISC-V and ARM.
+
+This repository builds the abstraction layer against real FreeRTOS and
 RT-Thread kernels and runs bare-metal RISC-V and ARM Cortex-M3 firmware on
 QEMU. The tests are target-side: task scheduling, ticks, wait queues,
 mutexes, static and dynamic task creation, and heap calls execute inside the
@@ -171,3 +174,17 @@ pointer, compare-and-set, arithmetic, bitwise, and bitmap operations use
 sequentially consistent GCC atomics and return the previous value where the
 Zephyr API does. Native Zephyr builds retain their architecture-selected
 implementation; FreeRTOS and RT-Thread build `src/common/atomic.c`.
+
+## API documentation
+
+Public APIs and backend storage mappings use Doxygen comments. Generate the
+HTML reference with:
+
+```sh
+sudo apt install doxygen
+doxygen docs/Doxyfile
+```
+
+The generated entry page is `build/docs/html/index.html`. Documentation
+warnings are treated as errors so incomplete parameter or return-value
+descriptions fail the command.

@@ -1,3 +1,7 @@
+/**
+ * @file mem_slab.c
+ * @brief Fixed-size block allocator over caller-owned storage.
+ */
 #include <lynx_wireless/kernel.h>
 
 #include "internal.h"

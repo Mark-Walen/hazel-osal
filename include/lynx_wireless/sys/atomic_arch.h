@@ -1,3 +1,10 @@
+/**
+ * @file atomic_arch.h
+ * @brief External atomic primitive declarations for standalone OSAL builds.
+ *
+ * The implementation is provided by src/common/atomic.c. Applications should
+ * normally include lynx_wireless/sys/atomic.h instead of this file directly.
+ */
 #ifndef LYNX_INCLUDE_SYS_ATOMIC_ARCH_H_
 #define LYNX_INCLUDE_SYS_ATOMIC_ARCH_H_
 

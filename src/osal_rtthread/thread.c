@@ -204,6 +204,96 @@ int os_thread_delete(struct os_thread *thread)
     return 0;
 }
 
+int os_thread_cancel(struct os_thread *thread)
+{
+    os_critical_key_t key;
+
+    if (!thread || !thread->handle) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+    key = os_enter_critical();
+    if (thread->completed) {
+        os_exit_critical(key);
+        return -EALREADY;
+    }
+    thread->cancel_requested = true;
+    os_exit_critical(key);
+    return 0;
+}
+
+bool os_thread_cancel_requested(void)
+{
+    struct os_thread *thread = os_get_current_thread();
+
+    return thread ? thread->cancel_requested : false;
+}
+
+int os_thread_test_cancel(void)
+{
+    return os_thread_cancel_requested() ? -ECANCELED : 0;
+}
+
+int os_thread_abort(struct os_thread *thread)
+{
+    rt_thread_t handle;
+    rt_err_t result;
+    bool is_static;
+    os_critical_key_t key;
+
+    if (!thread || !thread->handle || !thread->completion_handle) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+    if (os_get_current_thread() == thread) {
+        return -EDEADLK;
+    }
+    handle = (rt_thread_t)thread->handle;
+    is_static = rt_object_is_systemobject((rt_object_t)handle);
+
+    key = os_enter_critical();
+    if (thread->completed) {
+        os_exit_critical(key);
+        return -EALREADY;
+    }
+    if (thread->wait_q != NULL) {
+        sys_dlist_remove(&thread->wait_node);
+        thread->wait_q = NULL;
+    }
+    thread->cancel_requested = true;
+    thread->aborted = true;
+    thread->completed = true;
+    thread->state = OS_THREAD_TERMINATED;
+    os_exit_critical(key);
+
+    if (is_static) {
+        result = rt_thread_detach(handle);
+    } else {
+#ifdef RT_USING_HEAP
+        result = rt_thread_delete(handle);
+#else
+        result = -RT_ERROR;
+#endif
+    }
+    if (result != RT_EOK) {
+        key = os_enter_critical();
+        thread->completed = false;
+        thread->aborted = false;
+        thread->state = OS_THREAD_READY;
+        os_exit_critical(key);
+        return -EINVAL;
+    }
+    (void)rt_sem_release(&thread->completion_storage);
+    key = os_enter_critical();
+    thread->completion_signaled = true;
+    os_exit_critical(key);
+    return 0;
+}
+
 struct os_thread *os_get_current_thread(void)
 {
     rt_thread_t thread = rt_thread_self();

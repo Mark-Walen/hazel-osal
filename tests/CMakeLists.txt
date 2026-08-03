@@ -1,4 +1,5 @@
-set(PLATFORM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/platform/qemu_virt/riscv32")
+set(PLATFORM_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/platform/qemu_virt/${OSAL_ARCH}")
 
 add_executable(osal_qemu_tests
     osal_test.c
@@ -22,22 +23,29 @@ target_link_options(osal_qemu_tests PRIVATE
 set_property(TARGET osal_qemu_tests APPEND PROPERTY
     LINK_DEPENDS "${PLATFORM_DIR}/linker.ld")
 
-find_program(QEMU_RISCV32 qemu-system-riscv32)
-if(QEMU_RISCV32)
+if(OSAL_ARCH STREQUAL "riscv32")
+    find_program(QEMU_SYSTEM qemu-system-riscv32)
+    set(QEMU_ARGS
+        -machine virt -smp 1 -nographic -bios none
+        -kernel $<TARGET_FILE:osal_qemu_tests>)
+elseif(OSAL_ARCH STREQUAL "arm32")
+    find_program(QEMU_SYSTEM qemu-system-arm)
+    set(QEMU_ARGS
+        -machine lm3s6965evb -nographic
+        -semihosting-config enable=on,target=native
+        -kernel $<TARGET_FILE:osal_qemu_tests>)
+endif()
+
+if(QEMU_SYSTEM)
     add_test(
-        NAME osal.qemu.riscv32.freertos
-        COMMAND "${QEMU_RISCV32}"
-            -machine virt
-            -smp 1
-            -nographic
-            -bios none
-            -kernel $<TARGET_FILE:osal_qemu_tests>
+        NAME osal.qemu.${OSAL_ARCH}.freertos
+        COMMAND "${QEMU_SYSTEM}" ${QEMU_ARGS}
     )
-    set_tests_properties(osal.qemu.riscv32.freertos PROPERTIES
+    set_tests_properties(osal.qemu.${OSAL_ARCH}.freertos PROPERTIES
         TIMEOUT 15
         PASS_REGULAR_EXPRESSION "PASS: OSAL tests"
         FAIL_REGULAR_EXPRESSION "FAIL:"
     )
 else()
-    message(WARNING "qemu-system-riscv32 not found; firmware will build but CTest is disabled")
+    message(WARNING "QEMU for ${OSAL_ARCH} not found; CTest is disabled")
 endif()

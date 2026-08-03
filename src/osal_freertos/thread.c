@@ -182,6 +182,97 @@ int os_thread_delete(struct os_thread *thread)
     return 0;
 }
 
+int os_thread_cancel(struct os_thread *thread)
+{
+    os_critical_key_t key;
+
+    if (!thread || !thread->handle) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+    key = os_enter_critical();
+    if (thread->completed) {
+        os_exit_critical(key);
+        return -EALREADY;
+    }
+    thread->cancel_requested = true;
+    os_exit_critical(key);
+    return 0;
+}
+
+bool os_thread_cancel_requested(void)
+{
+    struct os_thread *thread = os_get_current_thread();
+
+    return thread ? thread->cancel_requested : false;
+}
+
+int os_thread_test_cancel(void)
+{
+    return os_thread_cancel_requested() ? -ECANCELED : 0;
+}
+
+int os_thread_abort(struct os_thread *thread)
+{
+    TaskHandle_t handle;
+    SemaphoreHandle_t completion;
+    struct os_thread *current;
+    os_critical_key_t key;
+
+    if (!thread || !thread->handle || !thread->completion_handle) {
+        return -EINVAL;
+    }
+    if (os_is_in_isr()) {
+        return -EWOULDBLOCK;
+    }
+    current = os_get_current_thread();
+    key = os_enter_critical();
+    if (thread->completed) {
+        os_exit_critical(key);
+        return -EALREADY;
+    }
+    if (!sys_dlist_is_empty(&thread->owned_mutexes)) {
+        os_exit_critical(key);
+        return -EBUSY;
+    }
+    if (thread->wait_q != NULL) {
+        struct os_thread *owner = thread->waiting_mutex ?
+                                  thread->waiting_mutex->owner : NULL;
+
+        sys_dlist_remove(&thread->wait_node);
+        thread->wait_q = NULL;
+        thread->waiting_mutex = NULL;
+        if (owner != NULL) {
+            os_mutex_update_pi_chain_locked(owner);
+        }
+    }
+    thread->cancel_requested = true;
+    thread->aborted = true;
+    thread->completed = true;
+    thread->state = OS_THREAD_TERMINATED;
+    handle = (TaskHandle_t)thread->handle;
+    completion = (SemaphoreHandle_t)thread->completion_handle;
+    os_exit_critical(key);
+
+    if (current == thread) {
+        (void)xSemaphoreGive(completion);
+        key = os_enter_critical();
+        thread->completion_signaled = true;
+        os_exit_critical(key);
+        vTaskDelete(NULL);
+        return 0;
+    }
+
+    vTaskDelete(handle);
+    (void)xSemaphoreGive(completion);
+    key = os_enter_critical();
+    thread->completion_signaled = true;
+    os_exit_critical(key);
+    return 0;
+}
+
 struct os_thread *os_get_current_thread(void)
 {
 #if (configNUM_THREAD_LOCAL_STORAGE_POINTERS > 0)

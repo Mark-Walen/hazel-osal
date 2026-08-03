@@ -1,6 +1,8 @@
 #include "internal.h"
 
+#if !defined(__ARM_ARCH)
 extern BaseType_t xPortIsInsideInterrupt(void);
+#endif
 
 bool os_is_in_isr(void)
 {

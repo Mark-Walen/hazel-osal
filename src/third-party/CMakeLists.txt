@@ -1,7 +1,19 @@
 if(OSAL_RTOS STREQUAL "freertos")
     set(FREERTOS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/FreeRTOS/FreeRTOS")
     set(FREERTOS_KERNEL "${FREERTOS_ROOT}/Source")
-    set(FREERTOS_PORT "${FREERTOS_KERNEL}/portable/GCC/RISC-V")
+    if(OSAL_ARCH STREQUAL "riscv32")
+        set(FREERTOS_PORT "${FREERTOS_KERNEL}/portable/GCC/RISC-V")
+        set(FREERTOS_PORT_SOURCES
+            "${FREERTOS_PORT}/port.c"
+            "${FREERTOS_PORT}/portASM.S")
+        set(FREERTOS_PORT_PRIVATE_INCLUDE
+            "${FREERTOS_PORT}/chip_specific_extensions/RV32I_CLINT_no_extensions")
+    elseif(OSAL_ARCH STREQUAL "arm32")
+        set(FREERTOS_PORT "${FREERTOS_KERNEL}/portable/GCC/ARM_CM3")
+        set(FREERTOS_PORT_SOURCES "${FREERTOS_PORT}/port.c")
+    else()
+        message(FATAL_ERROR "Unsupported FreeRTOS architecture '${OSAL_ARCH}'")
+    endif()
 
     add_library(rtos_core STATIC
         "${FREERTOS_KERNEL}/tasks.c"
@@ -11,16 +23,15 @@ if(OSAL_RTOS STREQUAL "freertos")
         "${FREERTOS_KERNEL}/event_groups.c"
         "${FREERTOS_KERNEL}/stream_buffer.c"
         "${FREERTOS_KERNEL}/portable/MemMang/heap_4.c"
-        "${FREERTOS_PORT}/port.c"
-        "${FREERTOS_PORT}/portASM.S"
+        ${FREERTOS_PORT_SOURCES}
     )
     target_include_directories(rtos_core
         PUBLIC
             "${FREERTOS_KERNEL}/include"
             "${FREERTOS_PORT}"
-            "${PROJECT_SOURCE_DIR}/tests/platform/qemu_virt/riscv32"
+            "${PROJECT_SOURCE_DIR}/tests/platform/qemu_virt/${OSAL_ARCH}"
         PRIVATE
-            "${FREERTOS_PORT}/chip_specific_extensions/RV32I_CLINT_no_extensions"
+            ${FREERTOS_PORT_PRIVATE_INCLUDE}
     )
     target_compile_options(rtos_core PRIVATE
         -ffunction-sections -fdata-sections)

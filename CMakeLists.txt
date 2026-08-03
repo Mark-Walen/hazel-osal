@@ -9,12 +9,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(OSAL_RTOS "freertos" CACHE STRING "RTOS backend")
 set_property(CACHE OSAL_RTOS PROPERTY STRINGS freertos rtthread zephyr)
 set(OSAL_ARCH "riscv32" CACHE STRING "CPU architecture")
-set_property(CACHE OSAL_ARCH PROPERTY STRINGS riscv32 arm)
+set_property(CACHE OSAL_ARCH PROPERTY STRINGS riscv32 arm32)
 set(OSAL_PLATFORM "qemu_virt" CACHE STRING "Board/simulator platform")
 set_property(CACHE OSAL_PLATFORM PROPERTY STRINGS qemu_virt)
 option(OSAL_BUILD_TESTS "Build target-side OSAL tests" ON)
 
-if(OSAL_RTOS STREQUAL "freertos" AND NOT OSAL_ARCH STREQUAL "riscv32")
+if(OSAL_RTOS STREQUAL "freertos" AND
+   NOT OSAL_ARCH STREQUAL "riscv32" AND
+   NOT OSAL_ARCH STREQUAL "arm32")
     message(FATAL_ERROR
         "OSAL_ARCH '${OSAL_ARCH}' is not implemented yet. "
         "Add its FreeRTOS portable layer in src/third-party/CMakeLists.txt.")

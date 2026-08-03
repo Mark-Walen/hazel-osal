@@ -43,6 +43,15 @@
 #ifndef ENOSPC
 #define ENOSPC 28
 #endif
+#ifndef ENODEV
+#define ENODEV 19
+#endif
+#ifndef ECANCELED
+#define ECANCELED 125
+#endif
+#ifndef EALREADY
+#define EALREADY 114
+#endif
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
 #endif
@@ -74,6 +83,7 @@ struct os_thread;
 struct os_mutex;
 struct os_sem;
 struct os_work;
+struct os_work_queue;
 
 /**
  * @brief Wait queue structure.
@@ -170,6 +180,8 @@ struct os_thread {
     bool completion_signaled;   /**< Completion event has been published. */
     bool completion_reaped;     /**< Native OSAL resources were reclaimed. */
     bool join_active;           /**< A thread is currently joining this thread. */
+    bool cancel_requested;      /**< Cooperative cancellation was requested. */
+    bool aborted;               /**< Thread was terminated by os_thread_abort(). */
 };
 
 /**
@@ -260,15 +272,41 @@ typedef void (*os_work_handler_t)(struct os_work *work);
 struct os_work {
     struct os_fifo_node node;
     os_work_handler_t handler;
-    bool running;
+    struct os_work_queue *queue;
+    struct os_sem sync;
+    uint32_t flags;
+    uint32_t submission_id;
+    uint32_t running_id;
+    uint32_t completion_id;
+    uint32_t magic;
+    bool sync_initialized;
+};
+
+enum os_work_state {
+    OS_WORK_RUNNING = 1U << 0,
+    OS_WORK_CANCELING = 1U << 1,
+    OS_WORK_QUEUED = 1U << 2,
+};
+
+struct os_work_sync {
+    uintptr_t reserved;
+};
+
+struct os_work_queue_config {
+    const char *name;
+    bool no_yield;
 };
 
 struct os_work_queue {
     struct os_fifo fifo;
     struct os_fifo_node stop_node;
     struct os_thread thread;
+    struct os_work *current;
     bool started;
     bool stopping;
+    bool draining;
+    bool plugged;
+    bool no_yield;
 };
 
 /**
@@ -378,6 +416,23 @@ int os_thread_join(struct os_thread *thread, uint32_t timeout);
  * @return 0 on success, -EBUSY while running, or another negative error.
  */
 int os_thread_delete(struct os_thread *thread);
+
+/** Request cooperative cancellation; the target remains responsible to exit. */
+int os_thread_cancel(struct os_thread *thread);
+
+/** Return true when cancellation was requested for the current thread. */
+bool os_thread_cancel_requested(void);
+
+/** Return -ECANCELED at an explicit cooperative cancellation point. */
+int os_thread_test_cancel(void);
+
+/**
+ * Immediately terminate a thread and make it joinable.
+ *
+ * FreeRTOS rejects abort while the target owns an OSAL mutex. RT-Thread
+ * releases native mutexes as part of its thread-close path.
+ */
+int os_thread_abort(struct os_thread *thread);
 
 /**
  * @brief Get the current thread handle.
@@ -562,11 +617,22 @@ int os_signal_reset(struct os_signal *signal);
 
 /** Cooperative work queue backed by an OSAL worker thread. */
 void os_work_init(struct os_work *work, os_work_handler_t handler);
-int os_work_queue_start(struct os_work_queue *queue, const char *name,
+int os_work_queue_start(struct os_work_queue *queue,
                         os_thread_stack_t *stack, size_t stack_size,
-                        int priority);
+                        int priority,
+                        const struct os_work_queue_config *config);
+int os_work_submit_to_queue(struct os_work_queue *queue,
+                            struct os_work *work);
 int os_work_submit(struct os_work_queue *queue, struct os_work *work);
+uint32_t os_work_busy_get(const struct os_work *work);
+bool os_work_is_pending(const struct os_work *work);
+int os_work_cancel(struct os_work *work);
+bool os_work_cancel_sync(struct os_work *work, struct os_work_sync *sync);
+bool os_work_flush(struct os_work *work, struct os_work_sync *sync);
+int os_work_queue_drain(struct os_work_queue *queue, bool plug);
+int os_work_queue_unplug(struct os_work_queue *queue);
 int os_work_queue_stop(struct os_work_queue *queue, uint32_t timeout);
+struct os_thread *os_work_queue_thread_get(struct os_work_queue *queue);
 
 /**
  * @brief Check if execution context is an Interrupt Service Routine.

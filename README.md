@@ -1,8 +1,8 @@
 # Lynx OSAL target tests
 
 This repository builds the OS abstraction layer against real FreeRTOS and
-RT-Thread kernels and runs bare-metal RISC-V firmware on QEMU's `virt`
-machine. The tests are target-side: task scheduling, ticks, wait queues,
+RT-Thread kernels and runs bare-metal RISC-V and ARM Cortex-M3 firmware on
+QEMU. The tests are target-side: task scheduling, ticks, wait queues,
 mutexes, static and dynamic task creation, and heap calls execute inside the
 selected RTOS rather than in a host mock.
 
@@ -12,13 +12,15 @@ Use an Ubuntu/Debian WSL distribution and install the cross compiler and QEMU:
 
 ```sh
 sudo apt update
-sudo apt install cmake ninja-build scons gcc-riscv64-unknown-elf qemu-system-misc
+sudo apt install cmake ninja-build scons gcc-riscv64-unknown-elf \
+  gcc-arm-none-eabi qemu-system-misc qemu-system-arm
 ```
 
 From the repository (a `/mnt/<drive>/...` path is supported):
 
 ```sh
 bash scripts/wsl-test.sh
+bash scripts/wsl-test-arm32.sh
 ```
 
 Successful output ends with:
@@ -76,8 +78,12 @@ native RTOS kernel, and scheduler startup remain platform responsibilities.
 Threads have an explicit portable lifetime. `os_thread_join()` waits for the
 entry function to return and then reclaims backend completion resources.
 `os_thread_delete()` only reclaims a thread that has already returned; it does
-not force-kill a running thread, because doing so could abandon an OSAL mutex
-or corrupt a priority-inheritance chain.
+not force-kill a running thread. `os_thread_cancel()` is cooperative: code
+checks `os_thread_test_cancel()` at safe cancellation points and returns from
+its entry function. `os_thread_abort()` is the explicit forced-termination
+path. FreeRTOS rejects abort with `-EBUSY` while the target owns an OSAL mutex;
+RT-Thread uses its native close path to release owned mutexes. Both paths make
+an aborted thread joinable.
 
 Mutexes and semaphores have matching `os_mutex_deinit()` and
 `os_sem_deinit()` calls. They must not be deinitialized while owned or while
@@ -134,7 +140,7 @@ The extended IPC API is statically allocated and does not require the heap:
 | `os_mem_slab` | Equal-size blocks carved from aligned caller memory |
 | `os_event` | Native event group with wait-any/wait-all and optional clear |
 | `os_signal` | Single pending notification carrying an integer result |
-| `os_work_queue` | FIFO-driven OSAL worker thread with ordered execution |
+| `os_work_queue` | Zephyr-style submit, busy flags, cancel/flush, drain/plug, and stop |
 
 Message queue put/get, FIFO put/get, slab alloc/free, signal raise, and work
 submit support interrupt context when they are non-blocking. Event operations
@@ -148,4 +154,5 @@ portable semaphore contract.
 Deinitialization requires that no thread is waiting. A memory slab additionally
 requires every allocated block to have been returned, and a FIFO must be empty.
 FreeRTOS RV32 and RT-Thread RV64 execute the same target-side tests for all of
-these primitives.
+these primitives. FreeRTOS ARM32 runs the same suite on QEMU's Cortex-M3
+`lm3s6965evb` machine.

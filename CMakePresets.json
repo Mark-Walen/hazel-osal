@@ -14,18 +14,43 @@
         "OSAL_PLATFORM": "qemu_virt",
         "OSAL_BUILD_TESTS": "ON"
       }
+    },
+    {
+      "name": "qemu-arm32-freertos",
+      "displayName": "QEMU Cortex-M3 ARM32 + FreeRTOS",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/qemu-arm32-freertos",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OSAL_RTOS": "freertos",
+        "OSAL_ARCH": "arm32",
+        "OSAL_PLATFORM": "qemu_virt",
+        "OSAL_BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "qemu-riscv32-freertos",
       "configurePreset": "qemu-riscv32-freertos"
+    },
+    {
+      "name": "qemu-arm32-freertos",
+      "configurePreset": "qemu-arm32-freertos"
     }
   ],
   "testPresets": [
     {
       "name": "qemu-riscv32-freertos",
       "configurePreset": "qemu-riscv32-freertos",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "qemu-arm32-freertos",
+      "configurePreset": "qemu-arm32-freertos",
       "output": {
         "outputOnFailure": true
       }

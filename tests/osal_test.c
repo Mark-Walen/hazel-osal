@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-#ifdef CONFIG_FREERTOS_ENABLE
+#if defined(CONFIG_FREERTOS_ENABLE) && defined(__riscv)
 extern void freertos_risc_v_trap_handler(void);
 #endif
 
@@ -28,8 +28,12 @@ static struct os_thread join_thread;
 static struct os_thread delete_thread;
 static struct os_thread msgq_thread;
 static struct os_thread event_thread;
+static struct os_thread cancel_thread;
+static struct os_thread abort_thread;
 #ifdef CONFIG_RTTHREAD_ENABLE
 #define TEST_STACK_SIZE 2048
+#elif defined(__arm__)
+#define TEST_STACK_SIZE 256
 #else
 #define TEST_STACK_SIZE 384
 #endif
@@ -52,6 +56,8 @@ TEST_STACK(delete_stack);
 TEST_STACK(msgq_stack);
 TEST_STACK(event_stack);
 TEST_STACK(work_queue_stack);
+TEST_STACK(cancel_stack);
+TEST_STACK(abort_stack);
 static os_wait_q_t test_waitq;
 static os_wait_q_t ordered_waitq;
 static struct os_mutex test_mutex;
@@ -75,6 +81,7 @@ static struct os_signal test_signal;
 static struct os_work_queue test_work_queue;
 static struct os_work test_work_a;
 static struct os_work test_work_b;
+static struct os_work test_work_block;
 
 static volatile int wait_result;
 static volatile int mutex_locked;
@@ -103,6 +110,9 @@ static volatile int msgq_result;
 static volatile uint32_t event_result;
 static volatile int work_count;
 static volatile int work_order[2];
+static volatile int work_block_started;
+static volatile int work_block_release;
+static volatile int cancel_result;
 static unsigned int checks;
 
 #ifdef CONFIG_RTTHREAD_ENABLE
@@ -319,6 +329,36 @@ static void test_work_handler(struct os_work *work)
     work_order[index] = (work == &test_work_a) ? 1 : 2;
 }
 
+static void test_block_work_handler(struct os_work *work)
+{
+    (void)work;
+    work_block_started = 1;
+    while (!work_block_release) {
+        os_delay(1);
+    }
+}
+
+static void cancel_task(void *p1, void *p2, void *p3)
+{
+    (void)p1;
+    (void)p2;
+    (void)p3;
+    while (os_thread_test_cancel() == 0) {
+        os_delay(1);
+    }
+    cancel_result = os_thread_test_cancel();
+}
+
+static void abort_task(void *p1, void *p2, void *p3)
+{
+    (void)p1;
+    (void)p2;
+    (void)p3;
+    for (;;) {
+        os_delay(1);
+    }
+}
+
 static void controller_task(void *p1, void *p2, void *p3)
 {
     uint32_t start;
@@ -331,6 +371,8 @@ static void controller_task(void *p1, void *p2, void *p3)
 
 #ifdef CONFIG_RTTHREAD_ENABLE
     platform_puts("OSAL QEMU RV64 / RT-Thread\n");
+#elif defined(__arm__)
+    platform_puts("OSAL QEMU ARM32 / FreeRTOS\n");
 #else
     platform_puts("OSAL QEMU RV32 / FreeRTOS\n");
 #endif
@@ -384,6 +426,23 @@ static void controller_task(void *p1, void *p2, void *p3)
     }
     TEST_CHECK(delete_thread.handle == 0);
     TEST_CHECK(os_thread_delete(&delete_thread) == 0);
+
+    cancel_result = 0;
+    TEST_CHECK(os_thread_create(&cancel_thread, "cancel",
+                                cancel_stack, sizeof(cancel_stack),
+                                cancel_task, 0, 0, 0, 2, 0) == 0);
+    TEST_CHECK(os_thread_cancel(&cancel_thread) == 0);
+    TEST_CHECK(os_thread_join(&cancel_thread, OS_WAIT_FOREVER) == 0);
+    TEST_CHECK(cancel_result == -ECANCELED);
+    TEST_CHECK(!cancel_thread.aborted);
+
+    TEST_CHECK(os_thread_create(&abort_thread, "abort",
+                                abort_stack, sizeof(abort_stack),
+                                abort_task, 0, 0, 0, 2, 0) == 0);
+    os_delay(2);
+    TEST_CHECK(os_thread_abort(&abort_thread) == 0);
+    TEST_CHECK(os_thread_join(&abort_thread, OS_WAIT_FOREVER) == 0);
+    TEST_CHECK(abort_thread.aborted);
 
     os_waitq_init(&test_waitq);
     wait_result = -999;
@@ -648,20 +707,58 @@ static void controller_task(void *p1, void *p2, void *p3)
 
     os_work_init(&test_work_a, test_work_handler);
     os_work_init(&test_work_b, test_work_handler);
+    os_work_init(&test_work_block, test_block_work_handler);
     work_count = 0;
-    TEST_CHECK(os_work_queue_start(&test_work_queue, "workq",
-                                   work_queue_stack, sizeof(work_queue_stack),
-                                   2) == 0);
-    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == 0);
-    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == -EBUSY);
-    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_b) == 0);
+    {
+        const struct os_work_queue_config config = {
+            .name = "workq",
+            .no_yield = false,
+        };
+        TEST_CHECK(os_work_queue_start(&test_work_queue,
+                                       work_queue_stack,
+                                       sizeof(work_queue_stack),
+                                       2, &config) == 0);
+    }
+    TEST_CHECK(os_work_queue_thread_get(&test_work_queue) ==
+               &test_work_queue.thread);
+    TEST_CHECK(os_work_submit_to_queue(&test_work_queue,
+                                       &test_work_a) == 1);
+    TEST_CHECK(os_work_submit_to_queue(&test_work_queue,
+                                       &test_work_a) == 0);
+    TEST_CHECK(os_work_submit_to_queue(&test_work_queue,
+                                       &test_work_b) == 1);
     while (work_count < 2) {
         os_delay(1);
     }
     TEST_CHECK(work_order[0] == 1);
     TEST_CHECK(work_order[1] == 2);
+    TEST_CHECK(!os_work_is_pending(&test_work_a));
+    {
+        struct os_work_sync sync = { 0 };
+
+        work_block_started = 0;
+        work_block_release = 0;
+        TEST_CHECK(os_work_submit_to_queue(&test_work_queue,
+                                           &test_work_block) == 1);
+        while (!work_block_started) {
+            os_delay(1);
+        }
+        TEST_CHECK((os_work_busy_get(&test_work_block) &
+                    OS_WORK_RUNNING) != 0U);
+        TEST_CHECK(os_work_submit_to_queue(&test_work_queue,
+                                           &test_work_b) == 1);
+        TEST_CHECK(os_work_cancel_sync(&test_work_b, &sync));
+        TEST_CHECK(!os_work_is_pending(&test_work_b));
+        work_block_release = 1;
+        TEST_CHECK(os_work_flush(&test_work_block, &sync));
+    }
+    TEST_CHECK(os_work_queue_stop(&test_work_queue, 0) == -EBUSY);
+    TEST_CHECK(os_work_queue_drain(&test_work_queue, true) == 0);
+    TEST_CHECK(os_work_queue_unplug(&test_work_queue) == 0);
+    TEST_CHECK(os_work_queue_unplug(&test_work_queue) == -EALREADY);
+    TEST_CHECK(os_work_queue_drain(&test_work_queue, true) == 0);
     TEST_CHECK(os_work_queue_stop(&test_work_queue, OS_WAIT_FOREVER) == 0);
-    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == -EINVAL);
+    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == -ENODEV);
 
     os_mutex_init(&chain_m1);
     os_mutex_init(&chain_m2);
@@ -708,7 +805,7 @@ static void controller_task(void *p1, void *p2, void *p3)
 
 int main(void)
 {
-#ifdef CONFIG_FREERTOS_ENABLE
+#if defined(CONFIG_FREERTOS_ENABLE) && defined(__riscv)
     __asm__ volatile("csrw mtvec, %0" : : "r"(freertos_risc_v_trap_handler));
 #endif
 

@@ -12,8 +12,8 @@
  * Repetitive or obscure helper macros needed by sys/util.h.
  */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_INTERNAL_H_
-#define LYNX_INCLUDE_SYS_UTIL_INTERNAL_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_INTERNAL_H_
+#define HAZEL_INCLUDE_SYS_UTIL_INTERNAL_H_
 
 #include "util_loops.h"
 

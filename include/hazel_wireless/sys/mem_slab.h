@@ -6,12 +6,12 @@
  * k_mem_slab (heap-free, deterministic, O(1) alloc/free).
  */
 
-#ifndef LYNX_INCLUDE_SYS_MEM_SLAB_H_
-#define LYNX_INCLUDE_SYS_MEM_SLAB_H_
+#ifndef HAZEL_INCLUDE_SYS_MEM_SLAB_H_
+#define HAZEL_INCLUDE_SYS_MEM_SLAB_H_
 
 #include <stddef.h>
 #include <stdint.h>
-#include <lynx_wireless/sys/util.h>
+#include <hazel_wireless/sys/util.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -191,4 +191,4 @@ uint32_t sys_mem_slab_num_free_get(const struct sys_mem_slab *slab);
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_MEM_SLAB_H_ */
+#endif /* HAZEL_INCLUDE_SYS_MEM_SLAB_H_ */

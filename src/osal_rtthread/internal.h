@@ -1,7 +1,7 @@
-#ifndef LYNX_OSAL_RTTHREAD_INTERNAL_H
-#define LYNX_OSAL_RTTHREAD_INTERNAL_H
+#ifndef HAZEL_OSAL_RTTHREAD_INTERNAL_H
+#define HAZEL_OSAL_RTTHREAD_INTERNAL_H
 
-#include <lynx_wireless/kernel.h>
+#include <hazel_wireless/kernel.h>
 
 #include <rtthread.h>
 

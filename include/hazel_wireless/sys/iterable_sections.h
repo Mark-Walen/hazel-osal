@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LYNX_INCLUDE_SYS_ITERABLE_SECTIONS_H_
-#define LYNX_INCLUDE_SYS_ITERABLE_SECTIONS_H_
+#ifndef HAZEL_INCLUDE_SYS_ITERABLE_SECTIONS_H_
+#define HAZEL_INCLUDE_SYS_ITERABLE_SECTIONS_H_
 
-#include <lynx_wireless/sys/__assert.h>
-#include <lynx_wireless/toolchain.h>
+#include <hazel_wireless/sys/__assert.h>
+#include <hazel_wireless/toolchain.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -299,4 +299,4 @@ extern "C" {
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_ITERABLE_SECTIONS_H_ */
+#endif /* HAZEL_INCLUDE_SYS_ITERABLE_SECTIONS_H_ */

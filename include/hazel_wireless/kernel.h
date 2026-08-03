@@ -1,13 +1,13 @@
 /**
  * @file kernel.h
- * @brief Lynx Wireless Kernel Abstraction Layer API.
+ * @brief Hazel Wireless Kernel Abstraction Layer API.
  *
  * This module provides a generic API for threading, mutual exclusion,
  * timing, memory management, IPC, events, atomic services, and deferred work
  * while abstracting the underlying RTOS.
  */
-#ifndef LYNX_INCLUDE_KERNEL_H_
-#define LYNX_INCLUDE_KERNEL_H_
+#ifndef HAZEL_INCLUDE_KERNEL_H_
+#define HAZEL_INCLUDE_KERNEL_H_
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -57,9 +57,9 @@
 #define EWOULDBLOCK EAGAIN
 #endif
 
-#include <lynx_wireless/osal/osal.h>
-#include <lynx_wireless/sys/util.h>
-#include <lynx_wireless/sys/dlist.h>
+#include <hazel_wireless/osal/osal.h>
+#include <hazel_wireless/sys/util.h>
+#include <hazel_wireless/sys/dlist.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -1187,4 +1187,4 @@ void os_delay(uint32_t ticks);
 }
 #endif
 
-#endif /* LYNX_INCLUDE_KERNEL_H_ */
+#endif /* HAZEL_INCLUDE_KERNEL_H_ */

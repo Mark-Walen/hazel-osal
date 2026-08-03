@@ -5,12 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_LOOPS_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_LOOPS_H_
 #error "This header should not be used directly, please include util_loops.h instead"
-#endif /* LYNX_INCLUDE_SYS_UTIL_LOOPS_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_LOOPS_H_ */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_LISTIFY_H_
-#define LYNX_INCLUDE_SYS_UTIL_LISTIFY_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_LISTIFY_H_
+#define HAZEL_INCLUDE_SYS_UTIL_LISTIFY_H_
 
 #define Z_UTIL_LISTIFY_0(F, sep, ...)
 
@@ -16397,4 +16397,4 @@
 	Z_UTIL_LISTIFY_4095(F, sep, __VA_ARGS__) __DEBRACKET sep \
 	F(4095, __VA_ARGS__)
 
-#endif /* LYNX_INCLUDE_SYS_UTIL_LISTIFY_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_LISTIFY_H_ */

@@ -1,8 +1,8 @@
-#ifndef LYNX_INCLUDE_SYS_UTIL_H_
-#define LYNX_INCLUDE_SYS_UTIL_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_H_
+#define HAZEL_INCLUDE_SYS_UTIL_H_
 
 #include <stdbool.h>
-#include <lynx_wireless/sys/util_macro.h>
+#include <hazel_wireless/sys/util_macro.h>
 
 /** @brief Cast @p x, a pointer, to an unsigned integer. */
 #define POINTER_TO_UINT(x) ((uintptr_t) (x))

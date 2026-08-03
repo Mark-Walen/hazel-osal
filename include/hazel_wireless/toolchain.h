@@ -12,8 +12,8 @@
  * utilize toolchain specific attributes and/or pragmas.
  */
 
-#ifndef LYNX_INCLUDE_TOOLCHAIN_H_
-#define LYNX_INCLUDE_TOOLCHAIN_H_
+#ifndef HAZEL_INCLUDE_TOOLCHAIN_H_
+#define HAZEL_INCLUDE_TOOLCHAIN_H_
 
 #include <autoconf.h>
 
@@ -41,17 +41,17 @@
  */
 #include <toolchain/other.h>
 #elif defined(__XCC__)
-#include <lynx_wireless/toolchain/xcc.h>
+#include <hazel_wireless/toolchain/xcc.h>
 #elif defined(__CCAC__)
-#include <lynx_wireless/toolchain/mwdt.h>
+#include <hazel_wireless/toolchain/mwdt.h>
 #elif defined(__ARMCOMPILER_VERSION)
-#include <lynx_wireless/toolchain/armclang.h>
+#include <hazel_wireless/toolchain/armclang.h>
 #elif defined(__IAR_SYSTEMS_ICC__)
-#include <lynx_wireless/toolchain/iar.h>
+#include <hazel_wireless/toolchain/iar.h>
 #elif defined(__llvm__) || (defined(_LINKER) && defined(__LLD_LINKER_CMD__))
-#include <lynx_wireless/toolchain/llvm.h>
+#include <hazel_wireless/toolchain/llvm.h>
 #elif defined(__GNUC__) || (defined(_LINKER) && defined(__GCC_LINKER_CMD__))
-#include <lynx_wireless/toolchain/gcc.h>
+#include <hazel_wireless/toolchain/gcc.h>
 #else
 #error "Invalid/unknown toolchain configuration"
 #endif
@@ -394,4 +394,4 @@
 
 #endif /* !_LINKER */
 
-#endif /* LYNX_INCLUDE_TOOLCHAIN_H_ */
+#endif /* HAZEL_INCLUDE_TOOLCHAIN_H_ */

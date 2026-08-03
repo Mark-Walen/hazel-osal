@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2026 Lynx Wireless
+ * Copyright (c) 2026 Hazel Wireless
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LYNX_INCLUDE_SYS_ATOMIC_GCC_H_
-#define LYNX_INCLUDE_SYS_ATOMIC_GCC_H_
+#ifndef HAZEL_INCLUDE_SYS_ATOMIC_GCC_H_
+#define HAZEL_INCLUDE_SYS_ATOMIC_GCC_H_
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -195,4 +195,4 @@ static inline void atomic_set_release(atomic_t *target, atomic_val_t value)
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_ATOMIC_GCC_H_ */
+#endif /* HAZEL_INCLUDE_SYS_ATOMIC_GCC_H_ */

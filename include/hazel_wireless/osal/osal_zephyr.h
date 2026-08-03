@@ -2,8 +2,8 @@
  * @file osal_zephyr.h
  * @brief Map portable OSAL storage types to Zephyr kernel objects.
  */
-#ifndef LYNX_SUBSYS_OS_OSAL_ZEPHYR_H_
-#define LYNX_SUBSYS_OS_OSAL_ZEPHYR_H_
+#ifndef HAZEL_SUBSYS_OS_OSAL_ZEPHYR_H_
+#define HAZEL_SUBSYS_OS_OSAL_ZEPHYR_H_
 
 #include <zephyr/kernel.h>
 

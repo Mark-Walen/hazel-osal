@@ -10,12 +10,12 @@
  * @cond INTERNAL_HIDDEN
  */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_INTERNAL_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_INTERNAL_H_
 #error "This header should not be used directly, please include util_internal.h instead"
 #endif /* ZEPHYR_INCLUDE_SYS_UTIL_INTERNAL_H_ */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_INTERNAL_UTIL_X2_H_
-#define LYNX_INCLUDE_SYS_UTIL_INTERNAL_UTIL_X2_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_INTERNAL_UTIL_X2_H_
+#define HAZEL_INCLUDE_SYS_UTIL_INTERNAL_UTIL_X2_H_
 
 #define Z_UTIL_X2_0 0
 #define Z_UTIL_X2_1 2
@@ -4114,7 +4114,7 @@
 #define Z_UTIL_X2_4094 8188
 #define Z_UTIL_X2_4095 8190
 
-#endif /* LYNX_INCLUDE_SYS_UTIL_INTERNAL_UTIL_X2_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_INTERNAL_UTIL_X2_H_ */
 
 /**
  * INTERNAL_HIDDEN @endcond

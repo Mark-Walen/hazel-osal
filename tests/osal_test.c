@@ -1,5 +1,5 @@
-#include <lynx_wireless/kernel.h>
-#include <lynx_wireless/sys/atomic.h>
+#include <hazel_wireless/kernel.h>
+#include <hazel_wireless/sys/atomic.h>
 
 #ifdef CONFIG_FREERTOS_ENABLE
 #include "FreeRTOS.h"

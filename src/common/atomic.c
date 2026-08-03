@@ -6,7 +6,7 @@
  * instructions and provide the full memory barrier required by the Zephyr
  * atomic API. Zephyr builds use their native implementation instead.
  */
-#include <lynx_wireless/sys/atomic.h>
+#include <hazel_wireless/sys/atomic.h>
 
 bool atomic_cas(atomic_t *target, atomic_val_t old_value,
                 atomic_val_t new_value)

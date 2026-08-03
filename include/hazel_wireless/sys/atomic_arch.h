@@ -3,13 +3,13 @@
  * @brief External atomic primitive declarations for standalone OSAL builds.
  *
  * The implementation is provided by src/common/atomic.c. Applications should
- * normally include lynx_wireless/sys/atomic.h instead of this file directly.
+ * normally include hazel_wireless/sys/atomic.h instead of this file directly.
  */
-#ifndef LYNX_INCLUDE_SYS_ATOMIC_ARCH_H_
-#define LYNX_INCLUDE_SYS_ATOMIC_ARCH_H_
+#ifndef HAZEL_INCLUDE_SYS_ATOMIC_ARCH_H_
+#define HAZEL_INCLUDE_SYS_ATOMIC_ARCH_H_
 
 #include <stdbool.h>
-#include <lynx_wireless/sys/atomic_types.h>
+#include <hazel_wireless/sys/atomic_types.h>
 
 /* Included from <atomic.h> */
 
@@ -49,4 +49,4 @@ atomic_val_t atomic_and(atomic_t *target, atomic_val_t value);
 
 atomic_val_t atomic_nand(atomic_t *target, atomic_val_t value);
 
-#endif /* LYNX_INCLUDE_SYS_ATOMIC_ARCH_H_ */
+#endif /* HAZEL_INCLUDE_SYS_ATOMIC_ARCH_H_ */

@@ -11,8 +11,8 @@
  * Repetitive or obscure helper macros needed by sys/util.h.
  */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_LOOPS_H_
-#define LYNX_INCLUDE_SYS_UTIL_LOOPS_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_LOOPS_H_
+#define HAZEL_INCLUDE_SYS_UTIL_LOOPS_H_
 
 #define Z_FOR_LOOP_GET_ARG(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, \
 				_12, _13, _14, _15, _16, _17, _18, _19, _20, \
@@ -1464,4 +1464,4 @@
 /* Set of UTIL_LISTIFY particles */
 #include "util_listify.h"
 
-#endif /* LYNX_INCLUDE_SYS_UTIL_LOOPS_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_LOOPS_H_ */

@@ -9,7 +9,7 @@ add_executable(osal_qemu_tests
 set_target_properties(osal_qemu_tests PROPERTIES SUFFIX ".elf")
 
 target_include_directories(osal_qemu_tests PRIVATE "${PLATFORM_DIR}")
-target_link_libraries(osal_qemu_tests PRIVATE lynx_osal rtos_core gcc)
+target_link_libraries(osal_qemu_tests PRIVATE hazel_osal rtos_core gcc)
 target_compile_options(osal_qemu_tests PRIVATE
     -Wall -Wextra -Werror
     -ffreestanding -ffunction-sections -fdata-sections

@@ -1,4 +1,4 @@
-# Lynx OSAL
+# Hazel OSAL
 
 Portable OS abstraction layer for FreeRTOS, RT-Thread, and Zephyr, with QEMU
 tests for RISC-V and ARM.
@@ -98,7 +98,7 @@ millisecond/tick conversion helpers.
 
 RT-Thread is included at `src/third-party/rt-thread`. Its BSP remains
 responsible for building the kernel, drivers, and CPU port; this project builds
-`lynx_osal` against the selected BSP configuration. For example, the vendored
+`hazel_osal` against the selected BSP configuration. For example, the vendored
 RISC-V QEMU BSP can be compile-checked with:
 
 ```sh
@@ -168,7 +168,7 @@ deadline comparison remains correct across 32-bit tick wrap.
 
 ## Atomic operations
 
-`lynx_wireless/sys/atomic.h` provides the Zephyr-compatible `atomic_t`,
+`hazel_wireless/sys/atomic.h` provides the Zephyr-compatible `atomic_t`,
 `atomic_val_t`, `atomic_ptr_t`, and `atomic_ptr_val_t` types. Integer,
 pointer, compare-and-set, arithmetic, bitwise, and bitmap operations use
 sequentially consistent GCC atomics and return the previous value where the

@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LYNX_INCLUDE_SYS_LIST_GEN_H_
-#define LYNX_INCLUDE_SYS_LIST_GEN_H_
+#ifndef HAZEL_INCLUDE_SYS_LIST_GEN_H_
+#define HAZEL_INCLUDE_SYS_LIST_GEN_H_
 
 #include <stddef.h>
 #include <stdbool.h>
-#include <lynx_wireless/sys/util.h>
+#include <hazel_wireless/sys/util.h>
 
 #define Z_GENLIST_FOR_EACH_NODE(__lname, __l, __sn)			\
 	for (__sn = sys_ ## __lname ## _peek_head(__l); __sn != NULL;	\

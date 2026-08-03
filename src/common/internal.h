@@ -1,5 +1,5 @@
-#ifndef LYNX_OSAL_COMMON_INTERNAL_H
-#define LYNX_OSAL_COMMON_INTERNAL_H
+#ifndef HAZEL_OSAL_COMMON_INTERNAL_H
+#define HAZEL_OSAL_COMMON_INTERNAL_H
 
 #include <stddef.h>
 #include <stdint.h>

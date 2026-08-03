@@ -2,8 +2,8 @@
  * @file osal_rtthread.h
  * @brief Map portable OSAL storage types to RT-Thread kernel objects.
  */
-#ifndef LYNX_SUBSYS_OS_OSAL_RTTHREAD_H_
-#define LYNX_SUBSYS_OS_OSAL_RTTHREAD_H_
+#ifndef HAZEL_SUBSYS_OS_OSAL_RTTHREAD_H_
+#define HAZEL_SUBSYS_OS_OSAL_RTTHREAD_H_
 
 #include <rtthread.h>
 

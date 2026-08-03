@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
-#include <lynx_wireless/sys/util_macro.h>
+#include <hazel_wireless/sys/util_macro.h>
 
 #define BSWAP_16(x) ((uint16_t) ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8)))
 #define BSWAP_24(x) ((uint32_t) ((((x) >> 16) & 0xff) | \

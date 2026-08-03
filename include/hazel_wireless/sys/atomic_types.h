@@ -2,8 +2,8 @@
  * @file atomic_types.h
  * @brief Machine-word integer and pointer types used by the atomic API.
  */
-#ifndef LYNX_INCLUDE_SYS_ATOMIC_TYPES_H_
-#define LYNX_INCLUDE_SYS_ATOMIC_TYPES_H_
+#ifndef HAZEL_INCLUDE_SYS_ATOMIC_TYPES_H_
+#define HAZEL_INCLUDE_SYS_ATOMIC_TYPES_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,4 +22,4 @@ typedef atomic_ptr_t atomic_ptr_val_t;
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_ATOMIC_TYPES_H_ */
+#endif /* HAZEL_INCLUDE_SYS_ATOMIC_TYPES_H_ */

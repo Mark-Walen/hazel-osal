@@ -1,5 +1,5 @@
-#ifndef LYNX_SYS_INIT_H_
-#define LYNX_SYS_INIT_H_
+#ifndef HAZEL_SYS_INIT_H_
+#define HAZEL_SYS_INIT_H_
 
 #ifdef __cplusplus
 extern "C" {

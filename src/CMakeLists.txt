@@ -49,11 +49,11 @@ list(APPEND OSAL_SOURCES
     common/work_queue.c
 )
 
-add_library(lynx_osal STATIC ${OSAL_SOURCES})
-target_include_directories(lynx_osal PUBLIC ${PROJECT_SOURCE_DIR}/include)
-target_compile_definitions(lynx_osal PUBLIC ${OSAL_CONFIG_DEFINITION})
-target_link_libraries(lynx_osal PUBLIC rtos_core)
-target_compile_options(lynx_osal PRIVATE
+add_library(hazel_osal STATIC ${OSAL_SOURCES})
+target_include_directories(hazel_osal PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_compile_definitions(hazel_osal PUBLIC ${OSAL_CONFIG_DEFINITION})
+target_link_libraries(hazel_osal PUBLIC rtos_core)
+target_compile_options(hazel_osal PRIVATE
     -Wall -Wextra -Werror
     -ffunction-sections -fdata-sections
 )

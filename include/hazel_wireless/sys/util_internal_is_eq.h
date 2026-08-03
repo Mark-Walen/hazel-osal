@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_INTERNAL_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_INTERNAL_H_
 #error "This header should not be used directly, please include util_internal.h instead"
-#endif /* LYNX_INCLUDE_SYS_UTIL_INTERNAL_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_INTERNAL_H_ */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_INTERNAL_IS_EQ_H_
-#define LYNX_INCLUDE_SYS_UTIL_INTERNAL_IS_EQ_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_INTERNAL_IS_EQ_H_
+#define HAZEL_INCLUDE_SYS_UTIL_INTERNAL_IS_EQ_H_
 
 #define Z_IS_0_EQ_0(...)   \,
 #define Z_IS_0U_EQ_0(...)  \,
@@ -16402,4 +16402,4 @@
 #define Z_IS_4096_EQ_4096U(...)  \,
 #define Z_IS_4096U_EQ_4096U(...) \,
 
-#endif /* LYNX_INCLUDE_SYS_UTIL_INTERNAL_IS_EQ_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_INTERNAL_IS_EQ_H_ */

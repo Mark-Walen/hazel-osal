@@ -21,8 +21,8 @@
  *  - Removed mbedtls_ prefixes
  *  - Reworked coding style
  */
-#ifndef LYNX_INCLUDE_SYS_BASE64_H_
-#define LYNX_INCLUDE_SYS_BASE64_H_
+#ifndef HAZEL_INCLUDE_SYS_BASE64_H_
+#define HAZEL_INCLUDE_SYS_BASE64_H_
 
 #include <stddef.h>
 #include <sys/types.h>
@@ -89,4 +89,4 @@ int base64_decode(uint8_t *dst, size_t dlen, size_t *olen, const uint8_t *src,
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_BASE64_H_ */
+#endif /* HAZEL_INCLUDE_SYS_BASE64_H_ */

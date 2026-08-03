@@ -1,5 +1,5 @@
-#ifndef LYNX_INCLUDE_SYS_BINASCII_H_
-#define LYNX_INCLUDE_SYS_BINASCII_H_
+#ifndef HAZEL_INCLUDE_SYS_BINASCII_H_
+#define HAZEL_INCLUDE_SYS_BINASCII_H_
 
 #ifdef __cplusplus
 extern "C" {

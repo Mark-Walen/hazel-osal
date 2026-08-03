@@ -4,8 +4,8 @@
  *
  * Maps generic OSAL types to FreeRTOS specific types.
  */
-#ifndef LYNX_SUBSYS_OS_OSAL_FREERTOS_H_
-#define LYNX_SUBSYS_OS_OSAL_FREERTOS_H_
+#ifndef HAZEL_SUBSYS_OS_OSAL_FREERTOS_H_
+#define HAZEL_SUBSYS_OS_OSAL_FREERTOS_H_
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -47,4 +47,4 @@ extern "C" {
 }
 #endif
 
-#endif /* LYNX_SUBSYS_OS_OSAL_FREERTOS_H_ */
+#endif /* HAZEL_SUBSYS_OS_OSAL_FREERTOS_H_ */

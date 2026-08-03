@@ -14,8 +14,8 @@
  * should be include instead <sys/util_internal.h>
  */
 
-#ifndef LYNX_INCLUDE_SYS_UTIL_MACROS_H_
-#define LYNX_INCLUDE_SYS_UTIL_MACROS_H_
+#ifndef HAZEL_INCLUDE_SYS_UTIL_MACROS_H_
+#define HAZEL_INCLUDE_SYS_UTIL_MACROS_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,7 +31,7 @@ extern "C" {
  * below (APIs like IS_ENABLED(), COND_CODE_1(), etc.) are hidden away
  * in this file.
  */
-#include <lynx_wireless/sys/util_internal.h>
+#include <hazel_wireless/sys/util_internal.h>
 
 #ifndef BIT
 #if defined(_ASMLANGUAGE)
@@ -770,4 +770,4 @@ extern "C" {
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_UTIL_MACROS_H_ */
+#endif /* HAZEL_INCLUDE_SYS_UTIL_MACROS_H_ */

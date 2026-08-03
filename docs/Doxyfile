@@ -1,12 +1,12 @@
-PROJECT_NAME           = "Lynx OSAL"
+PROJECT_NAME           = "Hazel OSAL"
 PROJECT_BRIEF          = "Portable OS abstraction layer"
 OUTPUT_DIRECTORY       = build/docs
 
-INPUT                  = include/lynx_wireless/kernel.h \
-                         include/lynx_wireless/sys/atomic.h \
-                         include/lynx_wireless/sys/atomic_types.h \
-                         include/lynx_wireless/sys/atomic_arch.h \
-                         include/lynx_wireless/osal \
+INPUT                  = include/hazel_wireless/kernel.h \
+                         include/hazel_wireless/sys/atomic.h \
+                         include/hazel_wireless/sys/atomic_types.h \
+                         include/hazel_wireless/sys/atomic_arch.h \
+                         include/hazel_wireless/osal \
                          src/common
 FILE_PATTERNS          = *.h *.c
 RECURSIVE              = YES

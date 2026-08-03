@@ -2,7 +2,7 @@
  * @file message_queue.c
  * @brief Caller-buffered fixed-size message queue implementation.
  */
-#include <lynx_wireless/kernel.h>
+#include <hazel_wireless/kernel.h>
 
 #include "internal.h"
 

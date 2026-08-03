@@ -1,11 +1,11 @@
-#ifndef LYNX_INCLUDE_SYS_ATOMIC_H_
-#define LYNX_INCLUDE_SYS_ATOMIC_H_
+#ifndef HAZEL_INCLUDE_SYS_ATOMIC_H_
+#define HAZEL_INCLUDE_SYS_ATOMIC_H_
 
 #include <stdbool.h>
 #include <stddef.h>
 
-#include <lynx_wireless/sys/atomic_types.h> /* IWYU pragma: export */
-#include <lynx_wireless/sys/util.h>
+#include <hazel_wireless/sys/atomic_types.h> /* IWYU pragma: export */
+#include <hazel_wireless/sys/util.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,22 +15,22 @@ extern "C" {
 
 #if defined(CONFIG_ATOMIC_OPERATIONS_C)
 /* Generic-but-slow implementation based on kernel locking and syscalls */
-#include <lynx_wireless/sys/atomic_c.h>
+#include <hazel_wireless/sys/atomic_c.h>
 #elif defined(CONFIG_ATOMIC_OPERATIONS_ARCH)
 /* Some architectures need their own implementation */
 # ifdef CONFIG_XTENSA
 /* Not all Xtensa toolchains support GCC-style atomic intrinsics */
-# include <lynx_wireless/arch/xtensa/atomic_xtensa.h>
+# include <hazel_wireless/arch/xtensa/atomic_xtensa.h>
 # else
 /* Other arch specific implementation */
-# include <lynx_wireless/sys/atomic_arch.h>
+# include <hazel_wireless/sys/atomic_arch.h>
 # endif /* CONFIG_XTENSA */
 #elif defined(CONFIG_ATOMIC_OPERATIONS_BUILTIN)
 /* Default.  See this file for the Doxygen reference: */
-#include <lynx_wireless/sys/atomic_builtin.h>
+#include <hazel_wireless/sys/atomic_builtin.h>
 #else
 /* Standalone OSAL builds use the portable implementation in common/atomic.c. */
-#include <lynx_wireless/sys/atomic_arch.h>
+#include <hazel_wireless/sys/atomic_arch.h>
 #endif
 
 /* Portable higher-level utilities: */
@@ -482,4 +482,4 @@ atomic_val_t atomic_nand(atomic_t *target, atomic_val_t value);
 } /* extern "C" */
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_ATOMIC_H_ */
+#endif /* HAZEL_INCLUDE_SYS_ATOMIC_H_ */

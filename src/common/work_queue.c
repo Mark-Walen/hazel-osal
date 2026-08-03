@@ -7,7 +7,7 @@
  * reaches the nearest deadline. All public state transitions are serialized
  * by the OSAL critical-section API.
  */
-#include <lynx_wireless/kernel.h>
+#include <hazel_wireless/kernel.h>
 
 #include "internal.h"
 

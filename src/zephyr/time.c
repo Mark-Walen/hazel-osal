@@ -1,4 +1,4 @@
-#include <lynx_wireless/kernel.h>
+#include <hazel_wireless/kernel.h>
 
 #include <zephyr/kernel.h>
 

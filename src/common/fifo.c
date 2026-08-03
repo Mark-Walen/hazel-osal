@@ -2,7 +2,7 @@
  * @file fifo.c
  * @brief Intrusive zero-copy FIFO implementation.
  */
-#include <lynx_wireless/kernel.h>
+#include <hazel_wireless/kernel.h>
 
 #include "internal.h"
 

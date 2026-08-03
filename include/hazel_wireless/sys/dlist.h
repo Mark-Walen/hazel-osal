@@ -22,8 +22,8 @@
  * @{
  */
 
-#ifndef LYNX_INCLUDE_SYS_DLIST_H_
-#define LYNX_INCLUDE_SYS_DLIST_H_
+#ifndef HAZEL_INCLUDE_SYS_DLIST_H_
+#define HAZEL_INCLUDE_SYS_DLIST_H_
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -642,4 +642,4 @@ static inline size_t sys_dlist_len(const sys_dlist_t *list)
 }
 #endif
 
-#endif /* LYNX_INCLUDE_SYS_DLIST_H_ */
+#endif /* HAZEL_INCLUDE_SYS_DLIST_H_ */

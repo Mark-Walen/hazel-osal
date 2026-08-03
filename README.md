@@ -188,3 +188,11 @@ doxygen docs/Doxyfile
 The generated entry page is `build/docs/html/index.html`. Documentation
 warnings are treated as errors so incomplete parameter or return-value
 descriptions fail the command.
+
+The `Documentation` GitHub Actions workflow builds the same HTML reference as
+an artifact and converts the Doxygen XML groups into Markdown pages for the
+[project Wiki](https://github.com/Mark-Walen/hazel-osal/wiki). GitHub requires
+the Wiki to be initialized once from the repository's Wiki tab before its Git
+repository can be cloned. The workflow normally publishes with its scoped
+`GITHUB_TOKEN`; if repository policy blocks Wiki writes, configure a write-capable
+repository token as the `WIKI_TOKEN` Actions secret.

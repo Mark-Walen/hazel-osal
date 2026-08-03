@@ -1,0 +1,104 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "include/**"
+      - "src/common/**"
+      - "scripts/doxygen-to-wiki.py"
+  pull_request:
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "include/**"
+      - "src/common/**"
+      - "scripts/doxygen-to-wiki.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: docs-wiki-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install --yes doxygen
+
+      - name: Build HTML and XML documentation
+        run: doxygen docs/Doxyfile
+
+      - name: Build Wiki Markdown
+        run: |
+          python3 scripts/doxygen-to-wiki.py \
+            --xml build/docs/xml \
+            --output build/wiki \
+            --repository "${GITHUB_REPOSITORY}" \
+            --source-sha "${GITHUB_SHA}"
+
+      - name: Upload HTML documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: hazel-osal-doxygen-${{ github.sha }}
+          path: build/docs/html
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish generated pages to GitHub Wiki
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN || github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          wiki_url="https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          if ! git clone --quiet "${wiki_url}" build/wiki-repository; then
+            echo "::error::Initialize the repository Wiki with a first page, then rerun this workflow."
+            exit 1
+          fi
+
+          manifest=".hazel-osal-generated-pages"
+          if [[ -f "build/wiki-repository/${manifest}" ]]; then
+            while IFS= read -r page; do
+              [[ -z "${page}" ]] && continue
+              if [[ "${page}" == */* || "${page}" == .* ]]; then
+                echo "::error::Unsafe generated-page entry in Wiki manifest: ${page}"
+                exit 1
+              fi
+              rm -f -- "build/wiki-repository/${page}"
+            done < "build/wiki-repository/${manifest}"
+          fi
+
+          while IFS= read -r page; do
+            [[ -z "${page}" ]] && continue
+            if [[ "${page}" == */* || "${page}" == .* ]]; then
+              echo "::error::Unsafe generated-page entry: ${page}"
+              exit 1
+            fi
+            cp -- "build/wiki/${page}" "build/wiki-repository/${page}"
+          done < "build/wiki/${manifest}"
+          cp -- "build/wiki/${manifest}" "build/wiki-repository/${manifest}"
+
+          cd build/wiki-repository
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+
+          if git diff --cached --quiet; then
+            echo "Wiki documentation is already current."
+            exit 0
+          fi
+
+          git commit --message "docs: update API reference for ${GITHUB_SHA::12}"
+          git push origin HEAD

@@ -25,6 +25,8 @@ build.ninja
 # Editors and operating systems
 .vscode/
 .idea/
+__pycache__/
+*.py[cod]
 *.swp
 *.swo
 *~

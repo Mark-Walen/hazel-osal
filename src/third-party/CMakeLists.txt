@@ -56,7 +56,7 @@ elseif(OSAL_RTOS STREQUAL "rtthread")
     endif()
 
     # The BSP owns the RT-Thread kernel/CPU-port build. This interface target
-    # supplies headers while lynx_osal compiles as a reusable backend library.
+    # supplies headers while hazel_osal compiles as a reusable backend library.
     add_library(rtos_core INTERFACE)
     target_include_directories(rtos_core INTERFACE
         "${RTTHREAD_CONFIG_DIR}"

@@ -38,6 +38,7 @@
 #define INCLUDE_vTaskDelete                      1
 #define INCLUDE_vTaskDelay                       1
 #define INCLUDE_xTaskGetCurrentTaskHandle        1
+#define INCLUDE_xTaskGetSchedulerState            1
 
 void osal_test_assert(const char *file, uint32_t line);
 #define configASSERT(condition) \

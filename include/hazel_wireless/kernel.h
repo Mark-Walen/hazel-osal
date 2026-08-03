@@ -56,6 +56,12 @@
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
 #endif
+#ifndef ENOTSUP
+#define ENOTSUP 95
+#endif
+#ifndef EIO
+#define EIO 5
+#endif
 
 #include <hazel_wireless/osal/osal.h>
 #include <hazel_wireless/sys/util.h>
@@ -333,20 +339,47 @@ struct os_work_queue {
 
 /**
  * @defgroup Kernel_Lifecycle Kernel lifecycle
- * @brief Initialize the OS abstraction layer.
+ * @brief Initialize and control the OS abstraction layer.
  * @{
  */
 
 /**
  * @brief Initialize backend-owned OSAL state.
  *
- * This function is idempotent and must be called from thread context before
- * other OSAL APIs. The platform remains responsible for initializing the
- * selected RTOS and starting its scheduler.
+ * This function is idempotent and must be called from non-interrupt context
+ * before other OSAL APIs. The platform remains responsible for board and
+ * native RTOS initialization; call os_kernel_start() after creating initial
+ * threads when the backend does not start its scheduler before application entry.
  *
  * @return 0 on success, or -EWOULDBLOCK when called from interrupt context.
  */
 int os_kernel_init(void);
+
+/**
+ * @brief Start the native RTOS scheduler.
+ *
+ * On success this function normally does not return until a supported backend
+ * is stopped. Zephyr starts scheduling before application entry, so its
+ * implementation reports that the scheduler is already running.
+ *
+ * @return 0 if a previously started scheduler was stopped cleanly,
+ * -EALREADY if it is already running, -EWOULDBLOCK from interrupt context,
+ * -ENOMEM if scheduler startup fails, or another negative backend error.
+ */
+int os_kernel_start(void);
+
+/**
+ * @brief Request that the native RTOS scheduler stop.
+ *
+ * Scheduler shutdown is optional because many embedded RTOS ports have no
+ * execution context to return to. Such backends return -ENOTSUP without
+ * disturbing the running scheduler.
+ *
+ * @return 0 when a supported stop request is accepted, -EALREADY if the
+ * scheduler is not running, -ENOTSUP when the backend cannot stop safely,
+ * -EWOULDBLOCK from interrupt context, or another negative backend error.
+ */
+int os_kernel_stop(void);
 /** @} */
 
 /**

@@ -392,6 +392,8 @@ static void controller_task(void *p1, void *p2, void *p3)
 #endif
 
     TEST_CHECK(!os_is_in_isr());
+    TEST_CHECK(os_kernel_start() == -EALREADY);
+    TEST_CHECK(os_kernel_stop() == -ENOTSUP);
     TEST_CHECK(os_get_current_thread() == &controller_thread);
     TEST_CHECK(os_thread_get_priority(&controller_thread) == 3);
 
@@ -944,7 +946,7 @@ int main(void)
     }
 
 #ifdef CONFIG_FREERTOS_ENABLE
-    vTaskStartScheduler();
+    (void)os_kernel_start();
     platform_puts("FAIL: scheduler returned\n");
     platform_exit(0);
 #else

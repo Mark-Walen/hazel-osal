@@ -31,7 +31,8 @@ PREDEFINED             = CONFIG_FREERTOS_ENABLE=1 \
 ALIASES                = atomic_api="All atomic operations include a full memory barrier."
 EXCLUDE_SYMBOLS        = EINVAL EAGAIN ENOMEM EBUSY EPERM ETIMEDOUT \
                          EDEADLK ENOSPC ENODEV ECANCELED EALREADY \
-                         EWOULDBLOCK Z_POLL_EVENT_OBJ_INIT Z_DECL_POLL_EVENT
+                         EWOULDBLOCK ENOTSUP EIO Z_POLL_EVENT_OBJ_INIT \
+                         Z_DECL_POLL_EVENT
 
 WARNINGS               = YES
 WARN_IF_UNDOCUMENTED   = YES

@@ -75,8 +75,16 @@ adds its own backend and kernel target without changing target-side OSAL tests.
 ## Kernel lifecycle
 
 Call `os_kernel_init()` once before using the other OSAL APIs. Repeated calls
-are allowed. It initializes backend-owned OSAL state only; board setup, the
-native RTOS kernel, and scheduler startup remain platform responsibilities.
+are allowed. It initializes backend-owned OSAL state only; board and native
+RTOS setup remain platform responsibilities. After creating initial threads,
+call `os_kernel_start()` on backends where application code owns scheduler
+startup. FreeRTOS uses this path; RT-Thread and Zephyr normally enter
+application code with scheduling already active and return `-EALREADY`.
+
+`os_kernel_stop()` is an optional capability. RT-Thread, Zephyr, and embedded
+FreeRTOS ports without a scheduler return context report `-ENOTSUP` and keep
+running. A FreeRTOS port that implements `vPortEndScheduler()` can opt in with
+`CONFIG_OSAL_FREERTOS_SCHEDULER_STOP=1`.
 
 Threads have an explicit portable lifetime. `os_thread_join()` waits for the
 entry function to return and then reclaims backend completion resources.

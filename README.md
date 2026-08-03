@@ -52,8 +52,10 @@ Add `-s -S` to QEMU and connect
 
 ## Portability layout
 
-- `src/osal_freertos`: FreeRTOS thread, wait queue, mutex, semaphore, memory,
-  context, and time adapters.
+- `src/common`: RTOS-independent message queue, FIFO, memory slab, signal,
+  and work queue implementations built from core OSAL primitives.
+- `src/osal_freertos`: FreeRTOS thread, wait queue, mutex, semaphore, event,
+  memory, context, and time adapters.
 - `src/osal_rtthread`: RT-Thread adapters for the same OSAL contract.
 - `src/zephyr`: Zephyr adapters as they are added.
 - `src/third-party/CMakeLists.txt`: RTOS kernel and CPU portable-layer sources.
@@ -120,3 +122,30 @@ The common contract includes bounded counts, saturating `give`, non-blocking
 `trytake`, tick-based timeouts, and ISR-safe zero-timeout operations. FreeRTOS
 and RT-Thread are both exercised by target-side QEMU tests. A Zephyr runtime
 target can be added to the build matrix independently.
+
+## IPC and deferred work
+
+The extended IPC API is statically allocated and does not require the heap:
+
+| Primitive | Storage and semantics |
+| --- | --- |
+| `os_msgq` | Fixed-size messages copied into a caller-provided ring buffer |
+| `os_fifo` | Zero-copy FIFO using caller-embedded `os_fifo_node` objects |
+| `os_mem_slab` | Equal-size blocks carved from aligned caller memory |
+| `os_event` | Native event group with wait-any/wait-all and optional clear |
+| `os_signal` | Single pending notification carrying an integer result |
+| `os_work_queue` | FIFO-driven OSAL worker thread with ordered execution |
+
+Message queue put/get, FIFO put/get, slab alloc/free, signal raise, and work
+submit support interrupt context when they are non-blocking. Event operations
+are thread-context-only so FreeRTOS, RT-Thread, and Zephyr share one contract.
+Raising an already-pending signal returns `-EBUSY`, preserving its original
+result until a waiter consumes or resets it.
+The portable event mask is 24 bits with 32-bit FreeRTOS ticks and 8 bits with
+16-bit FreeRTOS ticks. FIFO depth is limited to 65535 pending nodes by the
+portable semaphore contract.
+
+Deinitialization requires that no thread is waiting. A memory slab additionally
+requires every allocated block to have been returned, and a FIFO must be empty.
+FreeRTOS RV32 and RT-Thread RV64 execute the same target-side tests for all of
+these primitives.

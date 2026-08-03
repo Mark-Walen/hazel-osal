@@ -10,6 +10,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "event_groups.h"
 
 /** @brief Override generic TCB type with FreeRTOS StaticTask_t. */
 #undef os_thread_tcb_t
@@ -26,6 +27,15 @@
 /** @brief Embedded completion event used by os_thread_join(). */
 #undef os_thread_completion_storage_t
 #define os_thread_completion_storage_t StaticSemaphore_t
+
+#undef os_event_storage_t
+#define os_event_storage_t StaticEventGroup_t
+
+#if (configUSE_16_BIT_TICKS == 1)
+#define OS_EVENT_BITS_MASK UINT32_C(0x000000ff)
+#else
+#define OS_EVENT_BITS_MASK UINT32_C(0x00ffffff)
+#endif
 
 #ifdef __cplusplus
 extern "C" {

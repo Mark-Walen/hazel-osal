@@ -21,4 +21,7 @@
 #undef os_sem_storage_t
 #define os_sem_storage_t struct rt_semaphore
 
+#undef os_event_storage_t
+#define os_event_storage_t struct rt_event
+
 #endif

@@ -8,6 +8,7 @@ if(OSAL_RTOS STREQUAL "freertos")
         osal_freertos/semaphore.c
         osal_freertos/memory.c
         osal_freertos/time.c
+        osal_freertos/event.c
     )
     set(OSAL_CONFIG_DEFINITION CONFIG_FREERTOS_ENABLE=1)
 elseif(OSAL_RTOS STREQUAL "rtthread")
@@ -21,6 +22,7 @@ elseif(OSAL_RTOS STREQUAL "rtthread")
         osal_rtthread/semaphore.c
         osal_rtthread/memory.c
         osal_rtthread/time.c
+        osal_rtthread/event.c
     )
     set(OSAL_CONFIG_DEFINITION CONFIG_RTTHREAD_ENABLE=1)
 elseif(OSAL_RTOS STREQUAL "zephyr")
@@ -28,11 +30,20 @@ elseif(OSAL_RTOS STREQUAL "zephyr")
         zephyr/kernel.c
         zephyr/semaphore.c
         zephyr/time.c
+        zephyr/event.c
     )
     set(OSAL_CONFIG_DEFINITION CONFIG_ZEPHYR_ENABLE=1)
 else()
     message(FATAL_ERROR "Unsupported OSAL_RTOS '${OSAL_RTOS}'")
 endif()
+
+list(APPEND OSAL_SOURCES
+    common/message_queue.c
+    common/fifo.c
+    common/mem_slab.c
+    common/signal.c
+    common/work_queue.c
+)
 
 add_library(lynx_osal STATIC ${OSAL_SOURCES})
 target_include_directories(lynx_osal PUBLIC ${PROJECT_SOURCE_DIR}/include)

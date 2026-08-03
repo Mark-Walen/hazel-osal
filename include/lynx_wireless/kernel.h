@@ -40,6 +40,9 @@
 #ifndef EDEADLK
 #define EDEADLK 35
 #endif
+#ifndef ENOSPC
+#define ENOSPC 28
+#endif
 #ifndef EWOULDBLOCK
 #define EWOULDBLOCK EAGAIN
 #endif
@@ -70,6 +73,7 @@ extern "C" {
 struct os_thread;
 struct os_mutex;
 struct os_sem;
+struct os_work;
 
 /**
  * @brief Wait queue structure.
@@ -111,6 +115,10 @@ typedef void (*os_thread_entry_t)(void *p1, void *p2, void *p3);
 
 #ifndef os_thread_completion_storage_t
 #define os_thread_completion_storage_t void *
+#endif
+
+#ifndef os_event_storage_t
+#define os_event_storage_t void *
 #endif
 
 /**
@@ -188,6 +196,79 @@ struct os_sem {
     void *handle;                 /**< Backend-native semaphore handle. */
     os_sem_storage_t storage;     /**< Backend-native static storage. */
     uint32_t limit;               /**< Maximum count. */
+};
+
+/** Fixed-size, caller-buffered message queue. */
+struct os_msgq {
+    uint8_t *buffer;
+    size_t message_size;
+    uint32_t capacity;
+    uint32_t read_index;
+    uint32_t write_index;
+    uint32_t count;
+    struct os_sem items;
+    struct os_sem spaces;
+    bool initialized;
+};
+
+/** Node embedded in an object placed on an os_fifo. */
+struct os_fifo_node {
+    sys_dnode_t node;
+    bool queued;
+};
+
+/** Intrusive, zero-copy FIFO. */
+struct os_fifo {
+    sys_dlist_t list;
+    struct os_sem items;
+    uint32_t count;
+    bool initialized;
+};
+
+/** Fixed-size block allocator backed by caller-owned memory. */
+struct os_mem_slab {
+    uint8_t *buffer;
+    void *free_list;
+    size_t block_size;
+    uint32_t num_blocks;
+    uint32_t free_blocks;
+    struct os_sem available;
+    bool initialized;
+};
+
+/** Portable event bits; the high byte is reserved by some backends. */
+#ifndef OS_EVENT_BITS_MASK
+#define OS_EVENT_BITS_MASK UINT32_C(0x00ffffff)
+#endif
+
+struct os_event {
+    void *handle;
+    os_event_storage_t storage;
+    bool initialized;
+};
+
+/** Single pending notification carrying an integer result. */
+struct os_signal {
+    struct os_sem notification;
+    int result;
+    bool raised;
+    bool initialized;
+};
+
+typedef void (*os_work_handler_t)(struct os_work *work);
+
+struct os_work {
+    struct os_fifo_node node;
+    os_work_handler_t handler;
+    bool running;
+};
+
+struct os_work_queue {
+    struct os_fifo fifo;
+    struct os_fifo_node stop_node;
+    struct os_thread thread;
+    bool started;
+    bool stopping;
 };
 
 /**
@@ -438,6 +519,54 @@ void os_sem_give(struct os_sem *sem);
  */
 uint32_t os_sem_count_get(struct os_sem *sem);
 /** @} */
+
+/** Initialize/deinitialize a fixed-size message queue. */
+int os_msgq_init(struct os_msgq *msgq, void *buffer, size_t message_size,
+                 uint32_t capacity);
+int os_msgq_deinit(struct os_msgq *msgq);
+int os_msgq_put(struct os_msgq *msgq, const void *message, uint32_t timeout);
+int os_msgq_get(struct os_msgq *msgq, void *message, uint32_t timeout);
+uint32_t os_msgq_count_get(struct os_msgq *msgq);
+
+/** Initialize/deinitialize and access an intrusive FIFO. */
+int os_fifo_init(struct os_fifo *fifo);
+int os_fifo_deinit(struct os_fifo *fifo);
+void os_fifo_node_init(struct os_fifo_node *node);
+int os_fifo_put(struct os_fifo *fifo, struct os_fifo_node *node);
+int os_fifo_get(struct os_fifo *fifo, struct os_fifo_node **node,
+                uint32_t timeout);
+
+/** Initialize/deinitialize and allocate from a fixed-size memory slab. */
+int os_mem_slab_init(struct os_mem_slab *slab, void *buffer,
+                     size_t block_size, uint32_t num_blocks);
+int os_mem_slab_deinit(struct os_mem_slab *slab);
+int os_mem_slab_alloc(struct os_mem_slab *slab, void **memory,
+                      uint32_t timeout);
+int os_mem_slab_free(struct os_mem_slab *slab, void *memory);
+uint32_t os_mem_slab_num_free_get(struct os_mem_slab *slab);
+
+/** Event-group operations. Wait returns matching bits through received. */
+int os_event_init(struct os_event *event);
+int os_event_deinit(struct os_event *event);
+int os_event_set(struct os_event *event, uint32_t bits);
+int os_event_clear(struct os_event *event, uint32_t bits);
+int os_event_wait(struct os_event *event, uint32_t requested, bool wait_all,
+                  bool clear, uint32_t timeout, uint32_t *received);
+
+/** Raise, wait for, and reset a result-carrying signal. */
+int os_signal_init(struct os_signal *signal);
+int os_signal_deinit(struct os_signal *signal);
+int os_signal_raise(struct os_signal *signal, int result);
+int os_signal_wait(struct os_signal *signal, uint32_t timeout, int *result);
+int os_signal_reset(struct os_signal *signal);
+
+/** Cooperative work queue backed by an OSAL worker thread. */
+void os_work_init(struct os_work *work, os_work_handler_t handler);
+int os_work_queue_start(struct os_work_queue *queue, const char *name,
+                        os_thread_stack_t *stack, size_t stack_size,
+                        int priority);
+int os_work_submit(struct os_work_queue *queue, struct os_work *work);
+int os_work_queue_stop(struct os_work_queue *queue, uint32_t timeout);
 
 /**
  * @brief Check if execution context is an Interrupt Service Routine.

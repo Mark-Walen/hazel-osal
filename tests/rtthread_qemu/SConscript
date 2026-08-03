@@ -18,6 +18,17 @@ src += [
         'semaphore.c',
         'memory.c',
         'time.c',
+        'event.c',
+    ]
+]
+src += [
+    os.path.join(osal_root, 'src', 'common', name)
+    for name in [
+        'message_queue.c',
+        'fifo.c',
+        'mem_slab.c',
+        'signal.c',
+        'work_queue.c',
     ]
 ]
 src += [

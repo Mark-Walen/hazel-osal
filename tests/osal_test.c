@@ -26,6 +26,8 @@ static struct os_thread chain_middle_thread;
 static struct os_thread chain_high_thread;
 static struct os_thread join_thread;
 static struct os_thread delete_thread;
+static struct os_thread msgq_thread;
+static struct os_thread event_thread;
 #ifdef CONFIG_RTTHREAD_ENABLE
 #define TEST_STACK_SIZE 2048
 #else
@@ -47,6 +49,9 @@ TEST_STACK(chain_middle_stack);
 TEST_STACK(chain_high_stack);
 TEST_STACK(join_stack);
 TEST_STACK(delete_stack);
+TEST_STACK(msgq_stack);
+TEST_STACK(event_stack);
+TEST_STACK(work_queue_stack);
 static os_wait_q_t test_waitq;
 static os_wait_q_t ordered_waitq;
 static struct os_mutex test_mutex;
@@ -54,6 +59,22 @@ static struct os_mutex pi_mutex;
 static struct os_sem test_sem;
 static struct os_mutex chain_m1;
 static struct os_mutex chain_m2;
+static struct os_msgq test_msgq;
+static uint32_t test_msgq_buffer[2];
+static struct os_fifo test_fifo;
+struct test_fifo_item {
+    struct os_fifo_node node;
+    int value;
+};
+static struct test_fifo_item fifo_item_a;
+static struct test_fifo_item fifo_item_b;
+static struct os_mem_slab test_slab;
+static uint8_t test_slab_buffer[96] __attribute__((aligned(sizeof(void *))));
+static struct os_event test_event;
+static struct os_signal test_signal;
+static struct os_work_queue test_work_queue;
+static struct os_work test_work_a;
+static struct os_work test_work_b;
 
 static volatile int wait_result;
 static volatile int mutex_locked;
@@ -78,6 +99,10 @@ static volatile int chain_middle_result;
 static volatile int chain_high_result;
 static volatile int join_done;
 static volatile int delete_done;
+static volatile int msgq_result;
+static volatile uint32_t event_result;
+static volatile int work_count;
+static volatile int work_order[2];
 static unsigned int checks;
 
 #ifdef CONFIG_RTTHREAD_ENABLE
@@ -259,6 +284,39 @@ static void lifecycle_task(void *p1, void *p2, void *p3)
     (void)p3;
     os_delay(delay);
     *done = 1;
+}
+
+static void msgq_waiter_task(void *p1, void *p2, void *p3)
+{
+    uint32_t value = 0;
+
+    (void)p1;
+    (void)p2;
+    (void)p3;
+    msgq_result = os_msgq_get(&test_msgq, &value, 20);
+    if (msgq_result == 0) {
+        msgq_result = (int)value;
+    }
+}
+
+static void event_waiter_task(void *p1, void *p2, void *p3)
+{
+    uint32_t received = 0;
+
+    (void)p1;
+    (void)p2;
+    (void)p3;
+    if (os_event_wait(&test_event, 0x3U, true, true, 20,
+                      &received) == 0) {
+        event_result = received;
+    }
+}
+
+static void test_work_handler(struct os_work *work)
+{
+    int index = work_count++;
+
+    work_order[index] = (work == &test_work_a) ? 1 : 2;
 }
 
 static void controller_task(void *p1, void *p2, void *p3)
@@ -467,6 +525,143 @@ static void controller_task(void *p1, void *p2, void *p3)
     TEST_CHECK(os_sem_count_get(&test_sem) == 0);
     TEST_CHECK(os_sem_deinit(&test_sem) == 0);
     TEST_CHECK(os_sem_trytake(&test_sem) == -EINVAL);
+
+    TEST_CHECK(os_msgq_init(&test_msgq, test_msgq_buffer,
+                            sizeof(test_msgq_buffer[0]), 2) == 0);
+    {
+        uint32_t value = 11;
+        uint32_t output = 0;
+
+        TEST_CHECK(os_msgq_put(&test_msgq, &value, 0) == 0);
+        value = 22;
+        TEST_CHECK(os_msgq_put(&test_msgq, &value, 0) == 0);
+        value = 33;
+        TEST_CHECK(os_msgq_put(&test_msgq, &value, 0) == -EBUSY);
+        TEST_CHECK(os_msgq_count_get(&test_msgq) == 2);
+        TEST_CHECK(os_msgq_get(&test_msgq, &output, 0) == 0);
+        TEST_CHECK(output == 11);
+        TEST_CHECK(os_msgq_get(&test_msgq, &output, 0) == 0);
+        TEST_CHECK(output == 22);
+        TEST_CHECK(os_msgq_get(&test_msgq, &output, 0) == -EBUSY);
+    }
+    msgq_result = -999;
+    TEST_CHECK(os_thread_create(&msgq_thread, "msgq",
+                                msgq_stack, sizeof(msgq_stack),
+                                msgq_waiter_task, 0, 0, 0, 4, 0) == 0);
+    os_delay(2);
+    TEST_CHECK(msgq_result == -999);
+    {
+        uint32_t value = 77;
+        TEST_CHECK(os_msgq_put(&test_msgq, &value, 0) == 0);
+    }
+    TEST_CHECK(os_thread_join(&msgq_thread, OS_WAIT_FOREVER) == 0);
+    TEST_CHECK(msgq_result == 77);
+    TEST_CHECK(os_msgq_deinit(&test_msgq) == 0);
+
+    TEST_CHECK(os_fifo_init(&test_fifo) == 0);
+    os_fifo_node_init(&fifo_item_a.node);
+    os_fifo_node_init(&fifo_item_b.node);
+    fifo_item_a.value = 1;
+    fifo_item_b.value = 2;
+    TEST_CHECK(os_fifo_put(&test_fifo, &fifo_item_a.node) == 0);
+    TEST_CHECK(os_fifo_put(&test_fifo, &fifo_item_a.node) == -EBUSY);
+    TEST_CHECK(os_fifo_put(&test_fifo, &fifo_item_b.node) == 0);
+    {
+        struct os_fifo_node *node = 0;
+        struct test_fifo_item *item;
+
+        TEST_CHECK(os_fifo_get(&test_fifo, &node, 0) == 0);
+        item = CONTAINER_OF(node, struct test_fifo_item, node);
+        TEST_CHECK(item->value == 1);
+        TEST_CHECK(os_fifo_get(&test_fifo, &node, 0) == 0);
+        item = CONTAINER_OF(node, struct test_fifo_item, node);
+        TEST_CHECK(item->value == 2);
+        TEST_CHECK(os_fifo_get(&test_fifo, &node, 0) == -EBUSY);
+    }
+    TEST_CHECK(os_fifo_deinit(&test_fifo) == 0);
+
+    TEST_CHECK(os_mem_slab_init(&test_slab, test_slab_buffer, 32, 3) == 0);
+    {
+        void *blocks[4] = { 0 };
+        uint32_t i;
+
+        for (i = 0; i < 3; ++i) {
+            TEST_CHECK(os_mem_slab_alloc(&test_slab, &blocks[i], 0) == 0);
+        }
+        TEST_CHECK(os_mem_slab_num_free_get(&test_slab) == 0);
+        TEST_CHECK(os_mem_slab_alloc(&test_slab, &blocks[3], 0) == -EBUSY);
+        TEST_CHECK(os_mem_slab_deinit(&test_slab) == -EBUSY);
+        TEST_CHECK(os_mem_slab_free(&test_slab, blocks[1]) == 0);
+        TEST_CHECK(os_mem_slab_free(&test_slab, blocks[1]) == -EINVAL);
+        TEST_CHECK(os_mem_slab_alloc(&test_slab, &blocks[3], 0) == 0);
+        TEST_CHECK(blocks[3] == blocks[1]);
+        TEST_CHECK(os_mem_slab_free(&test_slab, blocks[0]) == 0);
+        TEST_CHECK(os_mem_slab_free(&test_slab, blocks[2]) == 0);
+        TEST_CHECK(os_mem_slab_free(&test_slab, blocks[3]) == 0);
+    }
+    TEST_CHECK(os_mem_slab_num_free_get(&test_slab) == 3);
+    TEST_CHECK(os_mem_slab_deinit(&test_slab) == 0);
+
+    TEST_CHECK(os_event_init(&test_event) == 0);
+    {
+        uint32_t received = 0;
+
+        TEST_CHECK(os_event_wait(&test_event, 1, false, false, 0,
+                                 &received) == -EBUSY);
+        TEST_CHECK(os_event_set(&test_event, 1) == 0);
+        TEST_CHECK(os_event_wait(&test_event, 1, false, false, 0,
+                                 &received) == 0);
+        TEST_CHECK(received == 1);
+        TEST_CHECK(os_event_clear(&test_event, 1) == 0);
+    }
+    event_result = 0;
+    TEST_CHECK(os_thread_create(&event_thread, "event",
+                                event_stack, sizeof(event_stack),
+                                event_waiter_task, 0, 0, 0, 4, 0) == 0);
+    os_delay(2);
+    TEST_CHECK(os_event_set(&test_event, 1) == 0);
+    os_delay(1);
+    TEST_CHECK(event_result == 0);
+    TEST_CHECK(os_event_set(&test_event, 2) == 0);
+    TEST_CHECK(os_thread_join(&event_thread, OS_WAIT_FOREVER) == 0);
+    TEST_CHECK(event_result == 3);
+    {
+        uint32_t received = 0;
+        TEST_CHECK(os_event_wait(&test_event, 3, false, false, 0,
+                                 &received) == -EBUSY);
+    }
+    TEST_CHECK(os_event_deinit(&test_event) == 0);
+
+    TEST_CHECK(os_signal_init(&test_signal) == 0);
+    {
+        int result = 0;
+        TEST_CHECK(os_signal_wait(&test_signal, 0, &result) == -EBUSY);
+        TEST_CHECK(os_signal_raise(&test_signal, 42) == 0);
+        TEST_CHECK(os_signal_raise(&test_signal, 43) == -EBUSY);
+        TEST_CHECK(os_signal_wait(&test_signal, 0, &result) == 0);
+        TEST_CHECK(result == 42);
+        TEST_CHECK(os_signal_raise(&test_signal, 9) == 0);
+        TEST_CHECK(os_signal_reset(&test_signal) == 0);
+        TEST_CHECK(os_signal_wait(&test_signal, 0, &result) == -EBUSY);
+    }
+    TEST_CHECK(os_signal_deinit(&test_signal) == 0);
+
+    os_work_init(&test_work_a, test_work_handler);
+    os_work_init(&test_work_b, test_work_handler);
+    work_count = 0;
+    TEST_CHECK(os_work_queue_start(&test_work_queue, "workq",
+                                   work_queue_stack, sizeof(work_queue_stack),
+                                   2) == 0);
+    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == 0);
+    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == -EBUSY);
+    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_b) == 0);
+    while (work_count < 2) {
+        os_delay(1);
+    }
+    TEST_CHECK(work_order[0] == 1);
+    TEST_CHECK(work_order[1] == 2);
+    TEST_CHECK(os_work_queue_stop(&test_work_queue, OS_WAIT_FOREVER) == 0);
+    TEST_CHECK(os_work_submit(&test_work_queue, &test_work_a) == -EINVAL);
 
     os_mutex_init(&chain_m1);
     os_mutex_init(&chain_m2);

@@ -179,7 +179,26 @@ def main() -> int:
         "\n".join(sidebar), encoding="utf-8"
     )
 
-    generated = ["Home.md", "_Sidebar.md", *(name for _, name in groups)]
+    workflow_url = (
+        f"https://github.com/{args.repository}/actions/workflows/docs.yml"
+    )
+    footer = [
+        f"[Hazel OSAL](https://github.com/{args.repository}) API reference",
+        f"Generated from [`{short_sha}`]({source_url}) by the "
+        f"[Documentation workflow]({workflow_url}).",
+        "Generated pages are replaced automatically; edit their Doxygen source instead.",
+        "",
+    ]
+    (args.output / "_Footer.md").write_text(
+        "  \n".join(footer), encoding="utf-8"
+    )
+
+    generated = [
+        "Home.md",
+        "_Sidebar.md",
+        "_Footer.md",
+        *(name for _, name in groups),
+    ]
     (args.output / GENERATED_MANIFEST).write_text(
         "\n".join(generated) + "\n", encoding="utf-8"
     )

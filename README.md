@@ -140,7 +140,7 @@ The extended IPC API is statically allocated and does not require the heap:
 | `os_mem_slab` | Equal-size blocks carved from aligned caller memory |
 | `os_event` | Native event group with wait-any/wait-all and optional clear |
 | `os_signal` | Single pending notification carrying an integer result |
-| `os_work_queue` | Zephyr-style submit, busy flags, cancel/flush, drain/plug, and stop |
+| `os_work_queue` | Zephyr-style immediate and delayable work, cancel/flush, drain/plug, and stop |
 
 Message queue put/get, FIFO put/get, slab alloc/free, signal raise, and work
 submit support interrupt context when they are non-blocking. Event operations
@@ -156,3 +156,18 @@ requires every allocated block to have been returned, and a FIFO must be empty.
 FreeRTOS RV32 and RT-Thread RV64 execute the same target-side tests for all of
 these primitives. FreeRTOS ARM32 runs the same suite on QEMU's Cortex-M3
 `lm3s6965evb` machine.
+
+Delayable work supports schedule, reschedule, remaining/expiry queries,
+synchronous cancellation, and flush. As in Zephyr, scheduling an already
+scheduled or queued item is a no-op, while rescheduling replaces the pending
+deadline. Delays are expressed in OS ticks and are limited to `INT32_MAX` so
+deadline comparison remains correct across 32-bit tick wrap.
+
+## Atomic operations
+
+`lynx_wireless/sys/atomic.h` provides the Zephyr-compatible `atomic_t`,
+`atomic_val_t`, `atomic_ptr_t`, and `atomic_ptr_val_t` types. Integer,
+pointer, compare-and-set, arithmetic, bitwise, and bitmap operations use
+sequentially consistent GCC atomics and return the previous value where the
+Zephyr API does. Native Zephyr builds retain their architecture-selected
+implementation; FreeRTOS and RT-Thread build `src/common/atomic.c`.

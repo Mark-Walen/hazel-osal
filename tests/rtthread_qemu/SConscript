@@ -24,6 +24,7 @@ src += [
 src += [
     os.path.join(osal_root, 'src', 'common', name)
     for name in [
+        'atomic.c',
         'message_queue.c',
         'fifo.c',
         'mem_slab.c',

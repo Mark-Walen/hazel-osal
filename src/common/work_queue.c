@@ -11,6 +11,53 @@ static void os_work_notify(struct os_work *work)
     }
 }
 
+static uint32_t os_work_deadline_remaining(uint32_t deadline, uint32_t now)
+{
+    int32_t remaining = (int32_t)(deadline - now);
+
+    return remaining > 0 ? (uint32_t)remaining : 0U;
+}
+
+static uint32_t os_work_promote_delayed(struct os_work_queue *queue)
+{
+    for (;;) {
+        struct os_work_delayable *due = NULL;
+        struct os_work_delayable *dwork;
+        uint32_t timeout = OS_WAIT_FOREVER;
+        uint32_t now = os_tick_get();
+        bool blocked = false;
+        os_critical_key_t key = os_enter_critical();
+
+        SYS_DLIST_FOR_EACH_CONTAINER(&queue->delayed, dwork, delay_node) {
+            uint32_t remaining = os_work_deadline_remaining(dwork->deadline,
+                                                            now);
+
+            if (remaining == 0U) {
+                due = dwork;
+                break;
+            }
+            if (timeout == OS_WAIT_FOREVER || remaining < timeout) {
+                timeout = remaining;
+            }
+        }
+        if (due != NULL) {
+            sys_dlist_remove(&due->delay_node);
+            due->work.flags &= ~OS_WORK_DELAYED;
+            blocked = queue->plugged || queue->stopping;
+        }
+        os_exit_critical(key);
+
+        if (due == NULL) {
+            return timeout;
+        }
+        if (!blocked) {
+            (void)os_work_submit_to_queue(queue, &due->work);
+        } else {
+            os_work_notify(&due->work);
+        }
+    }
+}
+
 static void os_work_queue_entry(void *p1, void *p2, void *p3)
 {
     struct os_work_queue *queue = p1;
@@ -22,8 +69,9 @@ static void os_work_queue_entry(void *p1, void *p2, void *p3)
         sys_dnode_t *entry;
         struct os_work *work;
         os_critical_key_t key;
+        uint32_t timeout = os_work_promote_delayed(queue);
 
-        if (os_sem_take(&queue->fifo.items, OS_WAIT_FOREVER) != 0) {
+        if (os_sem_take(&queue->fifo.items, timeout) != 0) {
             continue;
         }
         key = os_enter_critical();
@@ -91,6 +139,7 @@ int os_work_queue_start(struct os_work_queue *queue,
     if (result != 0) {
         return result;
     }
+    sys_dlist_init(&queue->delayed);
     queue->no_yield = config ? config->no_yield : false;
     result = os_thread_create(&queue->thread, name, stack, stack_size,
                               os_work_queue_entry, queue, NULL, NULL,
@@ -261,6 +310,205 @@ bool os_work_flush(struct os_work *work, struct os_work_sync *sync)
     return waited;
 }
 
+void os_work_init_delayable(struct os_work_delayable *dwork,
+                            os_work_handler_t handler)
+{
+    if (!dwork) {
+        return;
+    }
+    os_common_zero(dwork, sizeof(*dwork));
+    os_work_init(&dwork->work, handler);
+    sys_dnode_init(&dwork->delay_node);
+}
+
+struct os_work_delayable *os_work_delayable_from_work(struct os_work *work)
+{
+    return work ? CONTAINER_OF(work, struct os_work_delayable, work) : NULL;
+}
+
+uint32_t os_work_delayable_busy_get(const struct os_work_delayable *dwork)
+{
+    return dwork ? os_work_busy_get(&dwork->work) : 0U;
+}
+
+bool os_work_delayable_is_pending(const struct os_work_delayable *dwork)
+{
+    return os_work_delayable_busy_get(dwork) != 0U;
+}
+
+uint32_t os_work_delayable_expires_get(const struct os_work_delayable *dwork)
+{
+    uint32_t expires;
+    os_critical_key_t key;
+
+    if (!dwork) {
+        return os_tick_get();
+    }
+    key = os_enter_critical();
+    expires = (dwork->work.flags & OS_WORK_DELAYED) != 0U ?
+              dwork->deadline : os_tick_get();
+    os_exit_critical(key);
+    return expires;
+}
+
+uint32_t os_work_delayable_remaining_get(
+    const struct os_work_delayable *dwork)
+{
+    uint32_t remaining = 0U;
+    os_critical_key_t key;
+
+    if (!dwork) {
+        return 0U;
+    }
+    key = os_enter_critical();
+    if ((dwork->work.flags & OS_WORK_DELAYED) != 0U) {
+        remaining = os_work_deadline_remaining(dwork->deadline,
+                                                os_tick_get());
+    }
+    os_exit_critical(key);
+    return remaining;
+}
+
+static int os_work_schedule_common(struct os_work_queue *queue,
+                                   struct os_work_delayable *dwork,
+                                   uint32_t delay, bool reschedule)
+{
+    struct os_work_queue *old_queue = NULL;
+    os_critical_key_t key;
+
+    if (!queue || !dwork || dwork->work.magic != OS_WORK_MAGIC ||
+        delay > (uint32_t)INT32_MAX) {
+        return -EINVAL;
+    }
+    if (!queue->started) {
+        return -ENODEV;
+    }
+    key = os_enter_critical();
+    if ((dwork->work.flags & OS_WORK_CANCELING) != 0U ||
+        queue->stopping ||
+        ((queue->draining || queue->plugged) &&
+         os_get_current_thread() != &queue->thread)) {
+        os_exit_critical(key);
+        return -EBUSY;
+    }
+    if (!reschedule &&
+        (dwork->work.flags & (OS_WORK_DELAYED | OS_WORK_QUEUED)) != 0U) {
+        os_exit_critical(key);
+        return 0;
+    }
+    if ((dwork->work.flags & OS_WORK_DELAYED) != 0U) {
+        old_queue = dwork->queue;
+        sys_dlist_remove(&dwork->delay_node);
+        dwork->work.flags &= ~OS_WORK_DELAYED;
+    }
+    if (delay == 0U) {
+        os_exit_critical(key);
+        if (old_queue != NULL) {
+            os_sem_give(&old_queue->fifo.items);
+        }
+        return os_work_submit_to_queue(queue, &dwork->work);
+    }
+    dwork->queue = queue;
+    dwork->deadline = os_tick_get() + delay;
+    dwork->work.flags |= OS_WORK_DELAYED;
+    sys_dlist_append(&queue->delayed, &dwork->delay_node);
+    os_exit_critical(key);
+
+    if (old_queue != NULL && old_queue != queue) {
+        os_sem_give(&old_queue->fifo.items);
+    }
+    os_sem_give(&queue->fifo.items);
+    return 1;
+}
+
+int os_work_schedule_for_queue(struct os_work_queue *queue,
+                               struct os_work_delayable *dwork,
+                               uint32_t delay)
+{
+    return os_work_schedule_common(queue, dwork, delay, false);
+}
+
+int os_work_reschedule_for_queue(struct os_work_queue *queue,
+                                 struct os_work_delayable *dwork,
+                                 uint32_t delay)
+{
+    return os_work_schedule_common(queue, dwork, delay, true);
+}
+
+int os_work_schedule(struct os_work_queue *queue,
+                     struct os_work_delayable *dwork, uint32_t delay)
+{
+    return os_work_schedule_for_queue(queue, dwork, delay);
+}
+
+int os_work_reschedule(struct os_work_queue *queue,
+                       struct os_work_delayable *dwork, uint32_t delay)
+{
+    return os_work_reschedule_for_queue(queue, dwork, delay);
+}
+
+int os_work_cancel_delayable(struct os_work_delayable *dwork)
+{
+    struct os_work_queue *queue = NULL;
+    os_critical_key_t key;
+
+    if (!dwork || dwork->work.magic != OS_WORK_MAGIC) {
+        return -EINVAL;
+    }
+    key = os_enter_critical();
+    if ((dwork->work.flags & OS_WORK_DELAYED) != 0U) {
+        queue = dwork->queue;
+        sys_dlist_remove(&dwork->delay_node);
+        dwork->work.flags &= ~OS_WORK_DELAYED;
+    }
+    os_exit_critical(key);
+    if (queue != NULL) {
+        os_sem_give(&queue->fifo.items);
+    }
+    return os_work_cancel(&dwork->work);
+}
+
+bool os_work_cancel_delayable_sync(struct os_work_delayable *dwork,
+                                   struct os_work_sync *sync)
+{
+    bool was_pending;
+
+    if (!dwork || !sync) {
+        return false;
+    }
+    was_pending = os_work_delayable_is_pending(dwork);
+    (void)os_work_cancel_delayable(dwork);
+    while (os_work_delayable_is_pending(dwork)) {
+        (void)os_sem_take(&dwork->work.sync, OS_WAIT_FOREVER);
+    }
+    return was_pending;
+}
+
+bool os_work_flush_delayable(struct os_work_delayable *dwork,
+                             struct os_work_sync *sync)
+{
+    struct os_work_queue *queue = NULL;
+    bool was_delayed = false;
+    os_critical_key_t key;
+
+    if (!dwork || !sync || dwork->work.magic != OS_WORK_MAGIC) {
+        return false;
+    }
+    key = os_enter_critical();
+    if ((dwork->work.flags & OS_WORK_DELAYED) != 0U) {
+        queue = dwork->queue;
+        sys_dlist_remove(&dwork->delay_node);
+        dwork->work.flags &= ~OS_WORK_DELAYED;
+        was_delayed = true;
+    }
+    os_exit_critical(key);
+    if (was_delayed) {
+        os_sem_give(&queue->fifo.items);
+        (void)os_work_submit_to_queue(queue, &dwork->work);
+    }
+    return os_work_flush(&dwork->work, sync) || was_delayed;
+}
+
 int os_work_queue_drain(struct os_work_queue *queue, bool plug)
 {
     os_critical_key_t key;
@@ -336,6 +584,22 @@ int os_work_queue_stop(struct os_work_queue *queue, uint32_t timeout)
     result = os_thread_join(&queue->thread, timeout);
     if (result != 0) {
         return result;
+    }
+    for (;;) {
+        struct os_work_delayable *dwork;
+
+        key = os_enter_critical();
+        dwork = SYS_DLIST_PEEK_HEAD_CONTAINER(&queue->delayed, dwork,
+                                              delay_node);
+        if (dwork != NULL) {
+            sys_dlist_remove(&dwork->delay_node);
+            dwork->work.flags &= ~OS_WORK_DELAYED;
+        }
+        os_exit_critical(key);
+        if (dwork == NULL) {
+            break;
+        }
+        os_work_notify(&dwork->work);
     }
     result = os_fifo_deinit(&queue->fifo);
     if (result != 0) {

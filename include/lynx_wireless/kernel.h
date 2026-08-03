@@ -83,6 +83,7 @@ struct os_thread;
 struct os_mutex;
 struct os_sem;
 struct os_work;
+struct os_work_delayable;
 struct os_work_queue;
 
 /**
@@ -286,6 +287,14 @@ enum os_work_state {
     OS_WORK_RUNNING = 1U << 0,
     OS_WORK_CANCELING = 1U << 1,
     OS_WORK_QUEUED = 1U << 2,
+    OS_WORK_DELAYED = 1U << 3,
+};
+
+struct os_work_delayable {
+    struct os_work work;
+    sys_dnode_t delay_node;
+    struct os_work_queue *queue;
+    uint32_t deadline;
 };
 
 struct os_work_sync {
@@ -299,6 +308,7 @@ struct os_work_queue_config {
 
 struct os_work_queue {
     struct os_fifo fifo;
+    sys_dlist_t delayed;
     struct os_fifo_node stop_node;
     struct os_thread thread;
     struct os_work *current;
@@ -629,6 +639,29 @@ bool os_work_is_pending(const struct os_work *work);
 int os_work_cancel(struct os_work *work);
 bool os_work_cancel_sync(struct os_work *work, struct os_work_sync *sync);
 bool os_work_flush(struct os_work *work, struct os_work_sync *sync);
+void os_work_init_delayable(struct os_work_delayable *dwork,
+                            os_work_handler_t handler);
+struct os_work_delayable *os_work_delayable_from_work(struct os_work *work);
+uint32_t os_work_delayable_busy_get(const struct os_work_delayable *dwork);
+bool os_work_delayable_is_pending(const struct os_work_delayable *dwork);
+uint32_t os_work_delayable_expires_get(const struct os_work_delayable *dwork);
+uint32_t os_work_delayable_remaining_get(
+    const struct os_work_delayable *dwork);
+int os_work_schedule_for_queue(struct os_work_queue *queue,
+                               struct os_work_delayable *dwork,
+                               uint32_t delay);
+int os_work_reschedule_for_queue(struct os_work_queue *queue,
+                                 struct os_work_delayable *dwork,
+                                 uint32_t delay);
+int os_work_schedule(struct os_work_queue *queue,
+                     struct os_work_delayable *dwork, uint32_t delay);
+int os_work_reschedule(struct os_work_queue *queue,
+                       struct os_work_delayable *dwork, uint32_t delay);
+int os_work_cancel_delayable(struct os_work_delayable *dwork);
+bool os_work_cancel_delayable_sync(struct os_work_delayable *dwork,
+                                   struct os_work_sync *sync);
+bool os_work_flush_delayable(struct os_work_delayable *dwork,
+                             struct os_work_sync *sync);
 int os_work_queue_drain(struct os_work_queue *queue, bool plug);
 int os_work_queue_unplug(struct os_work_queue *queue);
 int os_work_queue_stop(struct os_work_queue *queue, uint32_t timeout);

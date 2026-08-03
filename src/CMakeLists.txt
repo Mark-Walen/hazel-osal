@@ -37,6 +37,10 @@ else()
     message(FATAL_ERROR "Unsupported OSAL_RTOS '${OSAL_RTOS}'")
 endif()
 
+if(NOT OSAL_RTOS STREQUAL "zephyr")
+    list(APPEND OSAL_SOURCES common/atomic.c)
+endif()
+
 list(APPEND OSAL_SOURCES
     common/message_queue.c
     common/fifo.c

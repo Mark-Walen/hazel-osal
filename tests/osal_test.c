@@ -1,4 +1,5 @@
 #include <lynx_wireless/kernel.h>
+#include <lynx_wireless/sys/atomic.h>
 
 #ifdef CONFIG_FREERTOS_ENABLE
 #include "FreeRTOS.h"
@@ -82,6 +83,8 @@ static struct os_work_queue test_work_queue;
 static struct os_work test_work_a;
 static struct os_work test_work_b;
 static struct os_work test_work_block;
+static struct os_work_delayable test_delayable_work;
+static ATOMIC_DEFINE(test_atomic_bitmap, ATOMIC_BITS + 2U);
 
 static volatile int wait_result;
 static volatile int mutex_locked;
@@ -113,6 +116,9 @@ static volatile int work_order[2];
 static volatile int work_block_started;
 static volatile int work_block_release;
 static volatile int cancel_result;
+static volatile int delayable_count;
+static volatile uint32_t delayable_tick;
+static volatile int delayable_parent_valid;
 static unsigned int checks;
 
 #ifdef CONFIG_RTTHREAD_ENABLE
@@ -336,6 +342,14 @@ static void test_block_work_handler(struct os_work *work)
     while (!work_block_release) {
         os_delay(1);
     }
+}
+
+static void test_delayable_work_handler(struct os_work *work)
+{
+    delayable_parent_valid =
+        os_work_delayable_from_work(work) == &test_delayable_work;
+    delayable_tick = os_tick_get();
+    ++delayable_count;
 }
 
 static void cancel_task(void *p1, void *p2, void *p3)
@@ -705,9 +719,68 @@ static void controller_task(void *p1, void *p2, void *p3)
     }
     TEST_CHECK(os_signal_deinit(&test_signal) == 0);
 
+    {
+        atomic_t value = ATOMIC_INIT(2);
+        atomic_val_t old_value;
+        int pointer_a = 1;
+        int pointer_b = 2;
+        atomic_ptr_t pointer = ATOMIC_PTR_INIT(&pointer_a);
+        atomic_ptr_val_t old_pointer;
+        size_t i;
+
+        TEST_CHECK(sizeof(atomic_t) == sizeof(long));
+        TEST_CHECK(sizeof(atomic_val_t) == sizeof(atomic_t));
+        TEST_CHECK(sizeof(atomic_ptr_t) == sizeof(void *));
+        TEST_CHECK(sizeof(atomic_ptr_val_t) == sizeof(atomic_ptr_t));
+        TEST_CHECK(atomic_get(&value) == 2);
+        TEST_CHECK(!atomic_cas(&value, 1, 3));
+        TEST_CHECK(atomic_cas(&value, 2, 3));
+        TEST_CHECK(atomic_add(&value, 4) == 3);
+        TEST_CHECK(atomic_sub(&value, 2) == 7);
+        TEST_CHECK(atomic_inc(&value) == 5);
+        TEST_CHECK(atomic_dec(&value) == 6);
+        TEST_CHECK(atomic_set(&value, 0x0f) == 5);
+        TEST_CHECK(atomic_or(&value, 0x30) == 0x0f);
+        TEST_CHECK(atomic_xor(&value, 0x03) == 0x3f);
+        TEST_CHECK(atomic_and(&value, 0x1f) == 0x3c);
+        TEST_CHECK(atomic_nand(&value, 0x0f) == 0x1c);
+        TEST_CHECK(atomic_get(&value) == (atomic_val_t)~0x0c);
+        old_value = atomic_clear(&value);
+        TEST_CHECK(old_value == (atomic_val_t)~0x0c);
+        TEST_CHECK(atomic_get(&value) == 0);
+
+        for (i = 0; i < ARRAY_SIZE(test_atomic_bitmap); ++i) {
+            (void)atomic_clear(&test_atomic_bitmap[i]);
+        }
+        TEST_CHECK(!atomic_test_bit(test_atomic_bitmap, 0));
+        TEST_CHECK(!atomic_test_and_set_bit(test_atomic_bitmap, 0));
+        TEST_CHECK(atomic_test_and_set_bit(test_atomic_bitmap, 0));
+        TEST_CHECK(atomic_test_and_clear_bit(test_atomic_bitmap, 0));
+        TEST_CHECK(!atomic_test_and_clear_bit(test_atomic_bitmap, 0));
+        atomic_set_bit(test_atomic_bitmap, (int)ATOMIC_BITS + 1);
+        TEST_CHECK(atomic_test_bit(test_atomic_bitmap,
+                                   (int)ATOMIC_BITS + 1));
+        TEST_CHECK(atomic_test_and_set_bit_to(test_atomic_bitmap, 1, true));
+        TEST_CHECK(!atomic_test_and_set_bit_to(test_atomic_bitmap, 1, true));
+        TEST_CHECK(atomic_test_and_set_bit_to(test_atomic_bitmap, 1, false));
+        atomic_set_bit_to(test_atomic_bitmap, 1, true);
+        atomic_clear_bit(test_atomic_bitmap, 1);
+        TEST_CHECK(!atomic_test_bit(test_atomic_bitmap, 1));
+
+        TEST_CHECK(atomic_ptr_get(&pointer) == &pointer_a);
+        TEST_CHECK(!atomic_ptr_cas(&pointer, &pointer_b, &pointer_a));
+        TEST_CHECK(atomic_ptr_cas(&pointer, &pointer_a, &pointer_b));
+        old_pointer = atomic_ptr_set(&pointer, &pointer_a);
+        TEST_CHECK(old_pointer == &pointer_b);
+        TEST_CHECK(atomic_ptr_clear(&pointer) == &pointer_a);
+        TEST_CHECK(atomic_ptr_get(&pointer) == NULL);
+    }
+
     os_work_init(&test_work_a, test_work_handler);
     os_work_init(&test_work_b, test_work_handler);
     os_work_init(&test_work_block, test_block_work_handler);
+    os_work_init_delayable(&test_delayable_work,
+                           test_delayable_work_handler);
     work_count = 0;
     {
         const struct os_work_queue_config config = {
@@ -751,6 +824,55 @@ static void controller_task(void *p1, void *p2, void *p3)
         TEST_CHECK(!os_work_is_pending(&test_work_b));
         work_block_release = 1;
         TEST_CHECK(os_work_flush(&test_work_block, &sync));
+    }
+    {
+        struct os_work_sync sync = { 0 };
+        uint32_t start;
+        uint32_t expires;
+
+        delayable_count = 0;
+        delayable_parent_valid = 0;
+        start = os_tick_get();
+        TEST_CHECK(os_work_schedule_for_queue(&test_work_queue,
+                                              &test_delayable_work, 5) == 1);
+        expires = os_work_delayable_expires_get(&test_delayable_work);
+        TEST_CHECK(os_work_schedule_for_queue(&test_work_queue,
+                                              &test_delayable_work, 20) == 0);
+        TEST_CHECK(os_work_delayable_expires_get(&test_delayable_work) ==
+                   expires);
+        TEST_CHECK((os_work_delayable_busy_get(&test_delayable_work) &
+                    OS_WORK_DELAYED) != 0U);
+        TEST_CHECK(os_work_delayable_remaining_get(&test_delayable_work) <= 5);
+        while (delayable_count == 0) {
+            os_delay(1);
+        }
+        TEST_CHECK((uint32_t)(delayable_tick - start) >= 4U);
+        TEST_CHECK(delayable_parent_valid == 1);
+        TEST_CHECK(!os_work_delayable_is_pending(&test_delayable_work));
+
+        TEST_CHECK(os_work_schedule_for_queue(&test_work_queue,
+                                              &test_delayable_work, 20) == 1);
+        start = os_tick_get();
+        TEST_CHECK(os_work_reschedule_for_queue(&test_work_queue,
+                                                &test_delayable_work, 5) == 1);
+        while (delayable_count < 2) {
+            os_delay(1);
+        }
+        TEST_CHECK((uint32_t)(delayable_tick - start) >= 4U);
+
+        TEST_CHECK(os_work_schedule_for_queue(&test_work_queue,
+                                              &test_delayable_work, 20) == 1);
+        TEST_CHECK(os_work_cancel_delayable_sync(&test_delayable_work,
+                                                 &sync));
+        TEST_CHECK(!os_work_delayable_is_pending(&test_delayable_work));
+        os_delay(2);
+        TEST_CHECK(delayable_count == 2);
+
+        TEST_CHECK(os_work_schedule_for_queue(&test_work_queue,
+                                              &test_delayable_work, 20) == 1);
+        TEST_CHECK(os_work_flush_delayable(&test_delayable_work, &sync));
+        TEST_CHECK(delayable_count == 3);
+        TEST_CHECK(os_work_delayable_remaining_get(&test_delayable_work) == 0);
     }
     TEST_CHECK(os_work_queue_stop(&test_work_queue, 0) == -EBUSY);
     TEST_CHECK(os_work_queue_drain(&test_work_queue, true) == 0);

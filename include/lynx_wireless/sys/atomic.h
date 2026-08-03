@@ -2,13 +2,10 @@
 #define LYNX_INCLUDE_SYS_ATOMIC_H_
 
 #include <stdbool.h>
-#include <lynx_wireless/toolchain.h>
 #include <stddef.h>
 
 #include <lynx_wireless/sys/atomic_types.h> /* IWYU pragma: export */
-#include <sys/types.h>
 #include <lynx_wireless/sys/util.h>
-#include <lynx_wireless/sys/atomic_types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +29,8 @@ extern "C" {
 /* Default.  See this file for the Doxygen reference: */
 #include <lynx_wireless/sys/atomic_builtin.h>
 #else
-#error "CONFIG_ATOMIC_OPERATIONS_* not defined"
+/* Standalone OSAL builds use the portable implementation in common/atomic.c. */
+#include <lynx_wireless/sys/atomic_arch.h>
 #endif
 
 /* Portable higher-level utilities: */
@@ -170,6 +168,18 @@ static inline bool atomic_test_and_set_bit(atomic_t *target, int bit)
 	old = atomic_or(ATOMIC_ELEM(target, bit), mask);
 
 	return (old & mask) != 0;
+}
+
+/**
+ * @brief Atomically set a bit to a value and report whether it changed.
+ *
+ * @return true if the bit changed, false if it already held @p val.
+ */
+static inline bool atomic_test_and_set_bit_to(atomic_t *target, int bit,
+                                               bool val)
+{
+    return val ? !atomic_test_and_set_bit(target, bit) :
+                 atomic_test_and_clear_bit(target, bit);
 }
 
 /**
